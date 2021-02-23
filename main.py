@@ -28,7 +28,11 @@ from lyric_manager import LyricManager
 
 from components import YamlParser
 
-def lyric_fetcher_aligner_from_enum_to_class(lyric_fetcher_types, lyric_aligner_type, genius_token):
+def lyric_fetcher_aligner_from_enum_to_class(
+    lyric_fetcher_types,
+    lyric_aligner_type,
+    genius_token,
+    path_to_NUSAutoLyrixAlignOffline):
 
     all_lyric_fetchers = []
     lyric_aligner = None
@@ -56,7 +60,7 @@ def lyric_fetcher_aligner_from_enum_to_class(lyric_fetcher_types, lyric_aligner_
         lyric_aligner = LyricAlignerDisabled(lyric_aligner_temp_path)
     elif lyric_aligner_type == LyricAlignerInterface.Type.NUSAutoLyrixAlignOffline:
         print("Lyric Aligner: Local File(s)")
-        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOffline(lyric_aligner_temp_path)
+        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOffline(lyric_aligner_temp_path, path_to_NUSAutoLyrixAlignOffline)
     elif lyric_aligner_type == LyricAlignerInterface.Type.NUSAutoLyrixAlignOnline:
         print("Lyric Aligner: Genius Database")
         lyric_aligner = LyricAlignerNUSAutoLyrixAlignOnline(lyric_aligner_temp_path)
@@ -128,14 +132,18 @@ def _command_line_arguments():
 
 
 if __name__ == '__main__':
-    print(__file__)
+
+    # We expect settings.yaml to be in the same folder as the executing script
+    path_to_settings_file = Path(__file__).parent / "settings.yaml"
 
     yaml_parser = YamlParser()
-
-    parsed_settings = yaml_parser.parse("D:/Code/LyricManager/settings.yaml")
+    parsed_settings = yaml_parser.parse( path_to_settings_file )
 
     all_lyric_fetchers, lyric_aligner = lyric_fetcher_aligner_from_enum_to_class(
-        parsed_settings.lyric_fetchers, parsed_settings.lyric_aligner, parsed_settings.lyric_fetcher_genius_token)
+        parsed_settings.lyric_fetchers,
+        parsed_settings.lyric_aligner,
+        parsed_settings.lyric_fetcher_genius_token,
+        parsed_settings.path_to_NUSAutoLyrixAlignOffline)
 
     # print("poopy")
 

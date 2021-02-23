@@ -3,6 +3,7 @@
 import yaml
 from collections import namedtuple
 import logging
+from pathlib import Path
 
 # 3rd Party
 
@@ -21,7 +22,8 @@ Settings = namedtuple("Settings",
         'lyric_fetchers',
         'lyric_fetcher_genius_token',
         'keep_fetched_lyrics',
-        'lyric_aligner'
+        'lyric_aligner',
+        'path_to_NUSAutoLyrixAlignOffline'
     ])
 
 class YamlParser():
@@ -42,13 +44,14 @@ class YamlParser():
         lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerInterface.Type, yaml_contents['lyric_aligner'])
 
         parsed_settings = Settings(
-            path_to_audio_files=yaml_contents['path_to_audio_files'],
+            path_to_audio_files=Path(yaml_contents['path_to_audio_files']),
             recursive_iteration=yaml_contents['recursively_parse_audio_file_path'],
             overwrite_generated_file=yaml_contents['overwrite_existing_generated_files'],
             lyric_fetchers=lyric_fetcher_types,
             lyric_fetcher_genius_token=yaml_contents['lyric_fetcher_genius_token'],
             keep_fetched_lyrics=yaml_contents['keep_fetched_lyric_files'],
             lyric_aligner=lyric_aligner_type,
+            path_to_NUSAutoLyrixAlignOffline=Path(yaml_contents['path_to_NUSAutoLyrixAlignOffline'])
         )
 
         return parsed_settings
