@@ -9,6 +9,9 @@ from pathlib import Path
 
 # 1st Party
 
+#from lyric_aligner import LyricAlignerType
+#from lyric_fetcher import LyricFetcherType
+
 # Intentionally left as a non-explicit import, i.e. NOT 'from lyric_fetcher import LyricFetcherInterface'
 # as this would lead to a circular dependence.
 import lyric_fetcher
@@ -39,9 +42,9 @@ class YamlParser():
         lyric_fetcher_types = []
 
         for fetcher_type in yaml_contents['lyric_fetchers']:
-            lyric_fetcher_types.append(self._parse_string_to_enum(lyric_fetcher.LyricFetcherInterface.Type, fetcher_type))
+            lyric_fetcher_types.append(self._parse_string_to_enum(lyric_fetcher.LyricFetcherType, fetcher_type))
 
-        lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerInterface.Type, yaml_contents['lyric_aligner'])
+        lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerType, yaml_contents['lyric_aligner'])
 
         parsed_settings = Settings(
             path_to_audio_files=Path(yaml_contents['path_to_audio_files']),
@@ -55,7 +58,8 @@ class YamlParser():
         )
 
         return parsed_settings
-    
+
+
     def _parse_string_to_enum(self, string_enum, input_string):
         """ A generic parser which converts a given string into the appropriate StringEnum.
 

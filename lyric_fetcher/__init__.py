@@ -1,3 +1,4 @@
+from .lyric_fetcher_type import LyricFetcherType
 from .lyric_fetcher_interface import LyricFetcherInterface
 from .lyric_fetcher_disabled import LyricFetcherDisabled
 from .lyric_fetcher_local_file import LyricFetcherLocalFile

@@ -131,6 +131,8 @@ class LyricManager:
         '''
         audio_files = self._get_all_audio(path_to_audio, recursive)
 
+        logging.info(f"Found {len(audio_files)} to process.")
+
         # Filter for existing lyric files here
 
         #self.lyric_fetcher.
@@ -138,7 +140,7 @@ class LyricManager:
         json_out_fds = {}
 
         for audio_file in audio_files:
-            logging.warn(f"Processing: {audio_file}")
+            logging.info(f"Processing: {audio_file}")
 
             lyrics = None
 
@@ -149,7 +151,7 @@ class LyricManager:
                 if lyrics:
                     break
 
-            if lyrics is None:
+            if not lyrics:
                 logging.warn("Unable to retrieve lyrics.")
                 continue
 
@@ -171,22 +173,20 @@ class LyricManager:
             # Hard-coded for 'Go-go's vacation' currently
             aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file)
 
-            #aligned_lyrics = self._parse_aligned_lyrics(path_to_synchronized_lyrics)
+            # json_to_write = self._create_lyrics_json(lyrics_sanitized, aligned_lyrics)
 
-            json_to_write = self._create_lyrics_json(lyrics_sanitized, aligned_lyrics)
+            # path_to_json_lyrics_file = audio_file.with_suffix(".a_good_extension")
 
-            path_to_json_lyrics_file = audio_file.with_suffix(".a_good_extension")
+            # # horsie2 = 2
 
-            # horsie2 = 2
+            # # lyrics = self.lyric_fetcher.fetch_lyrics("The Go-Go's", "Vacation")
 
-            # lyrics = self.lyric_fetcher.fetch_lyrics("The Go-Go's", "Vacation")
+            # json_out_fds["debug_meta_lyrics"] = lyrics
 
-            json_out_fds["debug_meta_lyrics"] = lyrics
-
-            with open(path_to_json_lyrics_file, 'w') as file:
-                json.dump(json_out_fds, file)
+            # with open(path_to_json_lyrics_file, 'w') as file:
+            #     json.dump(json_out_fds, file)
 
 
 
 
-        hello = 2
+            hello = 2

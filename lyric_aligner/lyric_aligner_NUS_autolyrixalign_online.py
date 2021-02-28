@@ -3,7 +3,7 @@ from .lyric_aligner_interface import LyricAlignerInterface
 class LyricAlignerNUSAutoLyrixAlignOnline(LyricAlignerInterface):
 
     def __init__(self, path_temp_dir):
-        super().__init__(path_temp_dir)
+        super().__init__(".nusalaonline", path_temp_dir)
 
     def _convert_to_wordandtiming(self, input):
         return []
