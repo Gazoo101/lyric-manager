@@ -4,15 +4,20 @@ from enum import Enum
 from pathlib import Path
 import json
 import logging
+from posix import POSIX_FADV_NOREUSE
 import re
 from collections import namedtuple
 
 # 3rd Party
-import lyricsgenius
+from recordtype import recordtype
 
 # 1st Party
 
+# Pure timing
 WordAndTiming = namedtuple("WordAndTiming", ["word", "time_start", "time_end"])
+
+# More complete word
+Lyric = recordtype('Lyric', [('word', ''), ('line_index', -1), ('time_start', -1.0), ('time_end', -1.0)])
 
 class LyricManager:
 
@@ -74,6 +79,170 @@ class LyricManager:
 
         return non_empty_lyric_lines
 
+
+    def _debug_print(self, lyrics_timing, wat_index, lyrics_structured_better, lsb_index, index_offset, mismatch_tolerance):
+        ''' Prints time aligned and structured lyrics on to console for easy debugging.
+
+        Example:
+            -- Lyric Matching --
+            Time aligned:  >STREETS< LIKE A JUNGLE SO CALL THE POLICE FOLLOWING THE HERD DOWN
+            Structured:  [ >Streets< like a ] jungle So call the police Following the herd Down
+        '''
+        display_range = 12  # How large a range to 
+        os.system('cls')
+
+        lyrics_timing_display = lyrics_timing[wat_index:wat_index+display_range]
+        words_timing = [x.word for x in lyrics_timing_display]
+
+        lyrics_structured_better_display = lyrics_structured_better[lsb_index:lsb_index+display_range]
+        words_structure = [x.word for x in lyrics_structured_better_display]
+
+        # TODO: Fix case index_offset > display_range
+        words_timing[0] = f">{words_timing[0]}<"
+        words_structure[index_offset] = f">{words_structure[index_offset]}<"
+        words_structure.insert(mismatch_tolerance, "]")
+        
+        td = " ".join(words_timing)
+        sd = " ".join(words_structure)
+
+        print("-- Lyric Matching --")
+        print(f"Time aligned:  {td}")
+        print(f"Structured:  [ {sd}")
+
+
+    def _convert_lyric_sentences_to_stuctured_words(self, lyrics_structured):
+        ''' Converts a list of strings into a list individual words wrapped in recordtype. '''
+        lyrics_structured_better = []
+
+        for line_index, lyric_line in enumerate(lyrics_structured):
+
+            lyric_line_parts = lyric_line.split(' ')
+
+            for word_index, word in enumerate(lyric_line_parts):
+
+                lyrics_structured_better.append( Lyric(word=word, line_index=line_index) )
+
+        return lyrics_structured_better
+
+
+    def _match_aligned_lyrics_with_structured_lyrics(self, lyrics_time_aligned, lyrics_structured, debug_print=False):
+        ''' Matches time aligned lyrics with (sentance) structured lyrics.
+
+        Aligned lyrics and structured lyrics rarely match exactly. This function uses a moving
+        expanding/contracting window in order to find the best structured lyric, for each aligned
+        lyric.
+
+        The algorithm will assume that the time aligned lyrics is the more sparse data, and use
+        it for the main for-loop. As the structured lyrics are scanned for a match, a window is
+        used within which to do a forward-search. If a match isn't found within the window, the
+        time aligned lyric is skipped and the window expands. Every time a match if found, the
+        window shrinks.
+
+        '''
+
+        #debug_print = True
+
+        # We'd like to easily iterate through each structured lyric word, so we'll transform the
+        # the list of strings (in lyrics_structured) into a long list of recordtypes, each with
+        # a start / stop time, and a line
+
+        lyrics_structured_better = self._convert_lyric_sentences_to_stuctured_words(lyrics_structured)
+
+        # Step 1. Process lyrics_structured to befit the incoming lyrics_timing.
+        # E.g. NUSAutoAlignLyrix removes ()'s and appears to perhaps not match "'em" so it should
+        # be replaced with 'them' (before processing though)
+
+        # Step 2. For each timed lyric, find the 'best' match
+
+        # Iterate though each timed lyric
+        # - Use fuzzy wuzzy to find 'match of word' vs word given in timing
+        #   - For now - expect exact match
+        #   - If a match is no-go, there should be 2 types of tolerances
+        #       1. When holding a timed lyric, how far can we skip through the structured to find a match? (start with 3)
+        #       2. Assuming the limit for 1. is hit (e.g. no match within the next 3 words), how many times
+        #       can we timed lyrices are we allowed to not match. (start with 3)
+        #   - Reset each of these as the work through the lyrics
+
+        # We assumed that timed lyrics may not precisely fit the structured lyrics, specifically:
+        # - A structured lyric word may not appear in the timed lyrics
+        #   - Either because the input lyrics to align were bunk, or
+        #   - because the lyric alignment algorithm failed to properly match the word
+        # - Timed lyric may include words that don't match a lyric
+        #   - NUSAutoAlignLyrix includes a 'Breath*' word that should either be
+        #       - Matched to a proper word the algorithm mistakenly thought was a breath
+        #       - Removed as we don't really want to display 'Breath*'...?
+         
+        # Matching the timed lyrics to structured lyrics is centered around the timed lyrics -
+        # i.e. we iterate over the timed lyrics as that is likely the more sparse data
+         
+        # wat -> word and timing
+        lsb_index = 0
+        #lsb_mismatch_count = 0
+        #mismatch_tolerance = 3
+
+        total_unmatched = 0
+
+        # Growing / Shrinking tolerance window works well with BLUR - Boys & Girls
+        min_mismatch_tolerance = 3
+        current_mismatch_tolerance = min_mismatch_tolerance
+
+        for wat_index, wat in enumerate(lyrics_time_aligned):
+
+            failed_to_match = False
+
+            match_span = min(len(lyrics_structured_better) - lsb_index, current_mismatch_tolerance)
+            for index_offset in range(match_span):
+
+                if debug_print:
+                    self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured_better, lsb_index, index_offset, current_mismatch_tolerance)
+
+                # Fix out of range...
+                lsb = lyrics_structured_better[lsb_index + index_offset]
+
+                #print(f"Matching {wat.word.lower()} against {lsb.word.lower()} ")
+
+                # Todo: Improve word-to-word comparisson 
+                if wat.word.lower() == lsb.word.lower():
+                    #lsb_mismatch_count = 0
+                    lyrics_structured_better[lsb_index].time_start = wat.time_start
+                    lyrics_structured_better[lsb_index].time_end = wat.time_end
+
+                    
+
+                    # If we find a 'later' match, we must move the lsb_index forward by the offset
+                    # otherwise, it'll keep falling behind
+                    lsb_index += index_offset
+                    
+                    break
+                else:
+                    #lsb_mismatch_count += 1
+                    horse = 456
+                
+                if index_offset == match_span-1:
+                    failed_to_match = True
+
+                #self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured_better, lsb_index, index_offset, current_mismatch_tolerance)
+
+            if failed_to_match:
+                logging.warn(f"Failed to match a word: {wat.word:10} | wat_index: {wat_index:3} | lsb_index: {lsb_index:3}")
+                # Given that the timed lyrics are always expected to be more sparse, than
+                # the structured ones, if a match fails, it 'should' be ok to move the lsb_index
+                # ahead. See how we go re. this change.
+                #lsb_index += 1
+                current_mismatch_tolerance += 1
+                total_unmatched += 1
+            else:
+                current_mismatch_tolerance = max(min_mismatch_tolerance, current_mismatch_tolerance-1)
+                lsb_index += 1
+
+        logging.info(f"Total unmatched: {total_unmatched} / {len(lyrics_time_aligned)}")
+        print(f"Total unmatched: {total_unmatched} / {len(lyrics_time_aligned)}")
+
+        horsems = 123
+
+        return lyrics_structured_better
+
+
     
     def _verify_lyrics(self, lyrics_stuctured, lyrics_timing):
         '''
@@ -109,8 +278,16 @@ class LyricManager:
         
         hello = 2
 
+    
+    def _convert_lyric_recordtype_to_dict(self, all_lyrics):
 
-    def _create_lyrics_json(self, lyrics_stuctured, lyrics_timing):
+        for lyric in all_lyrics:
+            # Assemble into sentences again for entry into dict / strings
+            pass
+
+
+
+    def _create_lyrics_json(self, time_aligned_lyrics, lyrics_stuctured):
 
         #lyrics_structured -> Reveals how lyrics form complete sentences
 
@@ -119,9 +296,12 @@ class LyricManager:
         # Periods are missing from the timing
         # apostophes appear to be present
 
-        self._verify_lyrics(lyrics_stuctured, lyrics_timing)
+        lyrics_structured_aligned = self._match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, lyrics_stuctured)
 
-        hello = 2
+        # recordtype can't be auto-converted to json, so we must turn it into a dict
+        lyrics_json = self._convert_lyric_recordtype_to_dict(lyrics_structured_aligned)
+
+        return lyrics_json
 
 
 
@@ -135,7 +315,8 @@ class LyricManager:
 
         # Filter for existing lyric files here
 
-        #self.lyric_fetcher.
+        # Blur generally ok - skip first
+        #audio_files = audio_files[1:]
 
         json_out_fds = {}
 
@@ -171,11 +352,11 @@ class LyricManager:
             intermediate_lyric_file = "path"
 
             # Hard-coded for 'Go-go's vacation' currently
-            aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file)
+            time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file)
 
-            # json_to_write = self._create_lyrics_json(lyrics_sanitized, aligned_lyrics)
+            json_to_write = self._create_lyrics_json(time_aligned_lyrics, lyrics_sanitized)
 
-            # path_to_json_lyrics_file = audio_file.with_suffix(".a_good_extension")
+            path_to_json_lyrics_file = audio_file.with_suffix(".a_good_extension")
 
             # # horsie2 = 2
 
@@ -183,8 +364,8 @@ class LyricManager:
 
             # json_out_fds["debug_meta_lyrics"] = lyrics
 
-            # with open(path_to_json_lyrics_file, 'w') as file:
-            #     json.dump(json_out_fds, file)
+            with open(path_to_json_lyrics_file, 'w') as file:
+                json.dump(json_to_write, file)
 
 
 
