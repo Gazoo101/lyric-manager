@@ -73,8 +73,13 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
 
         if preexisting_aligned_lyric_file.exists():
+            logging.info(f'Found pre-existing NUSAutoLyrixAlign file: {preexisting_aligned_lyric_file}')
             word_timings = self._convert_to_wordandtiming(preexisting_aligned_lyric_file)
             return word_timings
+
+        if not self.path_aligner:
+            logging.info('No path provided to NUSAutoLyrixAlign, skipping alignment.')
+            return []
 
         # TODO: Support raw .wav if there's enough call for it.
         if path_to_audio_file.suffix != ".mp3":

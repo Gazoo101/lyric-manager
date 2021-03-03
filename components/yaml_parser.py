@@ -36,6 +36,11 @@ class YamlParser():
 
     def parse(self, path_to_yaml_file):
 
+        if path_to_yaml_file.exists() == False:
+            error = "No settings.yaml found."
+            logging.warn(error)
+            raise RuntimeError(error)
+
         with open(path_to_yaml_file) as file:
             yaml_contents = yaml.safe_load(file)
  
@@ -46,6 +51,10 @@ class YamlParser():
 
         lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerType, yaml_contents['lyric_aligner'])
 
+        path_to_NUSAutoLyrixAlignOffline = None
+        if yaml_contents['path_to_NUSAutoLyrixAlignOffline'] != 'None':
+            path_to_NUSAutoLyrixAlignOffline = Path(yaml_contents['path_to_NUSAutoLyrixAlignOffline'])
+
         parsed_settings = Settings(
             path_to_audio_files=Path(yaml_contents['path_to_audio_files']),
             recursive_iteration=yaml_contents['recursively_parse_audio_file_path'],
@@ -54,7 +63,7 @@ class YamlParser():
             lyric_fetcher_genius_token=yaml_contents['lyric_fetcher_genius_token'],
             keep_fetched_lyrics=yaml_contents['keep_fetched_lyric_files'],
             lyric_aligner=lyric_aligner_type,
-            path_to_NUSAutoLyrixAlignOffline=Path(yaml_contents['path_to_NUSAutoLyrixAlignOffline'])
+            path_to_NUSAutoLyrixAlignOffline=path_to_NUSAutoLyrixAlignOffline
         )
 
         return parsed_settings
