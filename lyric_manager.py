@@ -4,7 +4,7 @@ from enum import Enum
 from pathlib import Path
 import json
 import logging
-from posix import POSIX_FADV_NOREUSE
+#from posix import POSIX_FADV_NOREUSE
 import re
 from collections import namedtuple
 
@@ -26,6 +26,9 @@ class LyricManager:
 
         self.all_lyric_fetchers = all_lyric_fetchers
         self.lyric_aligner = lyric_aligner
+
+    def _percentage(self, part, whole):
+        return 100 * float(part)/float(whole)
 
     def _get_all_audio(self, path, recursive):
 
@@ -177,8 +180,6 @@ class LyricManager:
          
         # wat -> word and timing
         lsb_index = 0
-        #lsb_mismatch_count = 0
-        #mismatch_tolerance = 3
 
         total_unmatched = 0
 
@@ -224,7 +225,7 @@ class LyricManager:
                 #self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured_better, lsb_index, index_offset, current_mismatch_tolerance)
 
             if failed_to_match:
-                logging.warn(f"Failed to match a word: {wat.word:10} | wat_index: {wat_index:3} | lsb_index: {lsb_index:3}")
+                logging.debug(f"Failed to match a word: {wat.word:10} | wat_index: {wat_index:3} | lsb_index: {lsb_index:3}")
                 # Given that the timed lyrics are always expected to be more sparse, than
                 # the structured ones, if a match fails, it 'should' be ok to move the lsb_index
                 # ahead. See how we go re. this change.
@@ -235,10 +236,10 @@ class LyricManager:
                 current_mismatch_tolerance = max(min_mismatch_tolerance, current_mismatch_tolerance-1)
                 lsb_index += 1
 
-        logging.info(f"Total unmatched: {total_unmatched} / {len(lyrics_time_aligned)}")
-        print(f"Total unmatched: {total_unmatched} / {len(lyrics_time_aligned)}")
-
-        horsems = 123
+        num_time_aligned_lyrics = len(lyrics_time_aligned)
+        total_matched = num_time_aligned_lyrics - total_unmatched
+        matched_percentage = self._percentage(total_matched, num_time_aligned_lyrics)
+        logging.info(f"Successfully matched words: {matched_percentage:.2f}% ({total_matched} / {num_time_aligned_lyrics}) ")
 
         return lyrics_structured_better
 
@@ -280,10 +281,58 @@ class LyricManager:
 
     
     def _convert_lyric_recordtype_to_dict(self, all_lyrics):
+        ''' Turning recordtype into python primitives
+        '''
+
+        #
+        #   {
+        #       lyric_full_sentence = "To the hip, the hippy"
+        #       time_start = xxx.xxx,
+        #       time_end = xxx.xxx,
+        #       lyrics = [
+        #           {
+        #               word = "something",
+        #               time_start = xxx.xxx,
+        #               time_end = xxx.xxx
+        #           },
+        #           ...
+        #       ]
+        #
+        #   }
+        #
+        #
+
+        lyrics_to_return = []
 
         for lyric in all_lyrics:
             # Assemble into sentences again for entry into dict / strings
-            pass
+            
+            if lyric.line_index == len(lyrics_to_return):
+
+                lyric_line = {
+                    "lyric_full_sentence": lyric.word,
+                    "time_start": lyric.time_start,
+                    "time_end": lyric.time_end,
+                    "lyrics": [{
+                        "word": lyric.word,
+                        "time_start": lyric.time_start,
+                        "time_end": lyric.time_end
+                    }]
+                }
+
+                lyrics_to_return.append(lyric_line)
+            else:
+                lyrics_to_return[lyric.line_index]["lyric_full_sentence"] += " " + lyric.word
+                lyrics_to_return[lyric.line_index]["time_end"] = lyric.time_end
+                lyrics_to_return[lyric.line_index]["lyrics"].append({
+                    "word": lyric.word,
+                    "time_start": lyric.time_start,
+                    "time_end": lyric.time_end
+                })
+            
+        return lyrics_to_return
+
+            
 
 
 
@@ -356,7 +405,7 @@ class LyricManager:
 
             json_to_write = self._create_lyrics_json(time_aligned_lyrics, lyrics_sanitized)
 
-            path_to_json_lyrics_file = audio_file.with_suffix(".a_good_extension")
+            path_to_json_lyrics_file = audio_file.with_suffix(".aligned_lyrics")
 
             # # horsie2 = 2
 
@@ -367,6 +416,7 @@ class LyricManager:
             with open(path_to_json_lyrics_file, 'w') as file:
                 json.dump(json_to_write, file)
 
+            logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 
 
 

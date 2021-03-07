@@ -143,8 +143,17 @@ if __name__ == '__main__':
     path_to_log = path_to_application / "lyric_manager.log"
     path_to_settings = path_to_application / "settings.yaml"
 
-    logging.basicConfig(filename=path_to_log, level=logging.DEBUG, filemode='w', format='%(name)s - %(levelname)s - %(message)s')
-    logging.info('Lyric Manager v1.0')
+    logging.basicConfig(
+        level=logging.INFO,
+        #level=logging.DEBUG,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.FileHandler(path_to_log),
+            logging.StreamHandler()     # Pass 'sys.stdout' if we'd prefer not to print to std.err
+        ]
+    )
+
+    logging.info('Lyric Manager v1.1')
 
     yaml_parser = YamlParser()
     parsed_settings = yaml_parser.parse( path_to_settings )
