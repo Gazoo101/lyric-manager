@@ -191,4 +191,4 @@ if __name__ == '__main__':
     overwrite_generated_files = parsed_settings.overwrite_generated_file
     export_readable_json = parsed_settings.export_readable_json
 
-    mylm.fetch_and_align_lyrics(path_to_audio, recursive, keep_files, export_readable_json)
+    mylm.fetch_and_align_lyrics(path_to_audio, recursive, keep_files, export_readable_json=export_readable_json)

@@ -59,7 +59,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         return timed_words
 
 
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input):
+    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting=True):
         ''' Copies audio and lyric files to a temporary location in order to then
         execute NUSAutoLyrixAlign, create an aligned lyric text and then copy this
         back.
@@ -72,7 +72,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         # Check if the saved raw version exists
         preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
 
-        if preexisting_aligned_lyric_file.exists():
+        if use_preexisting and preexisting_aligned_lyric_file.exists():
             logging.info(f'Found pre-existing NUSAutoLyrixAlign file: {preexisting_aligned_lyric_file}')
             word_timings = self._convert_to_wordandtiming(preexisting_aligned_lyric_file)
             return word_timings

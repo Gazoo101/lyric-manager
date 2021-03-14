@@ -166,19 +166,19 @@ class LyricManager:
         return lyrics_structured_better
 
 
-    def _convert_lyric_sentences_to_stuctured_words(self, lyrics_structured):
-        ''' Converts a list of strings into a list individual words wrapped in recordtype. '''
-        lyrics_structured_better = []
+    # def _convert_lyric_sentences_to_stuctured_words(self, lyrics_structured):
+    #     ''' Converts a list of strings into a list individual words wrapped in recordtype. '''
+    #     lyrics_structured_better = []
 
-        for line_index, lyric_line in enumerate(lyrics_structured):
+    #     for line_index, lyric_line in enumerate(lyrics_structured):
 
-            lyric_line_parts = lyric_line.split(' ')
+    #         lyric_line_parts = lyric_line.split(' ')
 
-            for word_index, word in enumerate(lyric_line_parts):
+    #         for word_index, word in enumerate(lyric_line_parts):
 
-                lyrics_structured_better.append( Lyric(word=word, line_index=line_index) )
+    #             lyrics_structured_better.append( Lyric(word=word, line_index=line_index) )
 
-        return lyrics_structured_better
+    #     return lyrics_structured_better
 
 
     def _match_aligned_lyrics_with_structured_lyrics(self, lyrics_time_aligned, lyrics_structured, debug_print=False):
@@ -202,7 +202,7 @@ class LyricManager:
         # the list of strings (in lyrics_structured) into a long list of recordtypes, each with
         # a start / stop time, and a line
 
-        lyrics_structured_better = self._convert_lyric_sentences_to_stuctured_words(lyrics_structured)
+        #lyrics_structured_better = self._convert_lyric_sentences_to_stuctured_words(lyrics_structured)
 
         # Step 1. Process lyrics_structured to befit the incoming lyrics_timing.
         # E.g. NUSAutoAlignLyrix removes ()'s and appears to perhaps not match "'em" so it should
@@ -244,22 +244,22 @@ class LyricManager:
 
             failed_to_match = False
 
-            match_span = min(len(lyrics_structured_better) - lsb_index, current_mismatch_tolerance)
+            match_span = min(len(lyrics_structured) - lsb_index, current_mismatch_tolerance)
             for index_offset in range(match_span):
 
                 if debug_print:
-                    self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured_better, lsb_index, index_offset, current_mismatch_tolerance)
+                    self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured, lsb_index, index_offset, current_mismatch_tolerance)
 
                 # Fix out of range...
-                lsb = lyrics_structured_better[lsb_index + index_offset]
+                lsb = lyrics_structured[lsb_index + index_offset]
 
                 #print(f"Matching {wat.word.lower()} against {lsb.word.lower()} ")
 
                 # Todo: Improve word-to-word comparisson 
-                if wat.word.lower() == lsb.word.lower():
+                if wat.word.lower() == lsb.word_alignment.lower():
                     #lsb_mismatch_count = 0
-                    lyrics_structured_better[lsb_index].time_start = wat.time_start
-                    lyrics_structured_better[lsb_index].time_end = wat.time_end
+                    lyrics_structured[lsb_index].time_start = wat.time_start
+                    lyrics_structured[lsb_index].time_end = wat.time_end
 
                     
 
@@ -294,7 +294,7 @@ class LyricManager:
         matched_percentage = self._percentage(total_matched, num_time_aligned_lyrics)
         logging.info(f"Successfully matched words: {matched_percentage:.2f}% ({total_matched} / {num_time_aligned_lyrics}) ")
 
-        return lyrics_structured_better
+        return lyrics_structured
 
 
     
@@ -323,14 +323,6 @@ class LyricManager:
                     print(f"Mismatch on Line {line_index}, Word {word_index}: {lyric_line}")
                     print(f"Word from original lyrics: {word2} | Timed Lyric: {word1}")
                     # Lyric doesn't match :/
-                    hello = 2
-                    
-
-                hello = 2
-
-            hello = 2
-        
-        hello = 2
 
     
     def _convert_lyric_recordtype_to_dict(self, all_lyrics):
@@ -368,11 +360,12 @@ class LyricManager:
             if lyric.line_index == len(ready_to_export_lyrics["lyric_lines"]):
 
                 lyric_line = {
-                    "text": lyric.word,
+                    "text": lyric.word_original,
                     "time_start": lyric.time_start,
                     "time_end": lyric.time_end,
                     "lyric_words": [{
-                        "text": lyric.word,
+                        "original": lyric.word_original,
+                        "single": lyric.word_single,
                         "time_start": lyric.time_start,
                         "time_end": lyric.time_end
                     }]
@@ -381,10 +374,11 @@ class LyricManager:
                 ready_to_export_lyrics["lyric_lines"].append(lyric_line)
                 #lyrics_to_return.append(lyric_line)
             else:
-                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += " " + lyric.word
+                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += " " + lyric.word_original
                 ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_end"] = lyric.time_end
                 ready_to_export_lyrics["lyric_lines"][lyric.line_index]["lyric_words"].append({
-                    "text": lyric.word,
+                    "original": lyric.word_original,
+                    "single": lyric.word_single,
                     "time_start": lyric.time_start,
                     "time_end": lyric.time_end
                 })
@@ -430,6 +424,8 @@ class LyricManager:
 
         json_out_fds = {}
 
+        audio_files = [audio_files[5]]
+
         for audio_file in audio_files:
             logging.info(f"Processing: {audio_file}")
 
@@ -449,10 +445,15 @@ class LyricManager:
             # Clears non-lyric content like [verse 1] and empty lines
             lyrics_sanitized = self._remove_non_lyrics(lyrics_raw)
 
-            test = self._convert_lyrics_to_lyrics_v2(lyrics_sanitized)
+            lyrics_v2 = self._convert_lyrics_to_lyrics_v2(lyrics_sanitized)
+
+            lyrics_alignment_ready = []
+
+            for lyric in lyrics_v2:
+                lyrics_alignment_ready.append(lyric.word_alignment)
 
             # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
-            complete_lyric_string = self._string_list_to_string(lyrics_sanitized)
+            complete_lyric_string = self._string_list_to_string(lyrics_alignment_ready)
 
             lyric_sanitized_file = audio_file.with_suffix(".lyrics_sanitized")
 
@@ -460,13 +461,13 @@ class LyricManager:
                 file.write(complete_lyric_string)
 
             # TODO: Write intermediate lyric file on-disk for aligner tool to use
-
-            intermediate_lyric_file = "path"
+            #intermediate_lyric_file = "path"
 
             # Hard-coded for 'Go-go's vacation' currently
-            time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file)
+            time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=False)
+            #time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=True)
 
-            json_to_write = self._create_lyrics_json(time_aligned_lyrics, lyrics_sanitized)
+            json_to_write = self._create_lyrics_json(time_aligned_lyrics, lyrics_v2)
 
             path_to_json_lyrics_file = audio_file.with_suffix(".aligned_lyrics")
 
