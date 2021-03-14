@@ -19,10 +19,28 @@ WordAndTiming = namedtuple("WordAndTiming", ["word", "time_start", "time_end"])
 # More complete word
 Lyric = recordtype('Lyric', [('word', ''), ('line_index', -1), ('time_start', -1.0), ('time_end', -1.0)])
 
+# 2nd iteration which contains 3 variants of word:
+# 1. Full original which includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
+# 2. Single word render friendly which removes commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
+# 3. Alignment friendly - similar to single word render, except converts slangy words to full, e.g. "Glancing"
+LyricV2 = recordtype('Lyric',
+    [
+        ('word_original', ''),
+        ('word_single', ''),
+        ('word_alignment', ''),
+        ('line_index', -1), 
+        ('time_start', -1.0),
+        ('time_end', -1.0)
+    ]
+)
+
 class LyricManager:
 
     def __init__(self, all_lyric_fetchers, lyric_aligner):
-        print("initied")
+        # The version of aligned lyrics json the LyricManager will export to.
+        # A simple, but imperfect, approach to ensure readers of the lyric data
+        # won't be surprised or unexpectedly broken.
+        self.json_schema_version = "1.0.0"
 
         self.all_lyric_fetchers = all_lyric_fetchers
         self.lyric_aligner = lyric_aligner
@@ -45,7 +63,7 @@ class LyricManager:
 
         return all_audio_files
 
-    def _sanitize_lyrics(self, lyrics):
+    def _remove_non_lyrics(self, lyrics):
         ''' Returns a list of sanitized lyric strings.
 
         Each string in the list represents a single coheasive sung sentence. This is used during
@@ -111,6 +129,41 @@ class LyricManager:
         print("-- Lyric Matching --")
         print(f"Time aligned:  {td}")
         print(f"Structured:  [ {sd}")
+
+
+    def _create_lyric_v2(self, word_original, line_index):
+
+        word_single=word_original
+
+        characters_to_remove = [',', '!', '(', ')']
+
+        for char in characters_to_remove:
+            word_single = word_single.replace(char, '')
+
+        word_alignment=word_single
+        if word_single.lower().endswith("in'"):
+            word_alignment = word_alignment[:-1] + "g"
+        
+        return LyricV2(word_original=word_original, word_single=word_single, word_alignment=word_alignment, line_index=line_index)
+
+
+    def _convert_lyrics_to_lyrics_v2(self, lyrics):
+        '''
+
+        Args:
+            lyrics: A list of strings.
+        '''
+        lyrics_structured_better = []
+
+        for line_index, lyric_line in enumerate(lyrics):
+
+            lyric_line_parts = lyric_line.split(' ')
+
+            for word in lyric_line_parts:
+
+                lyrics_structured_better.append( self._create_lyric_v2(word, line_index) )
+
+        return lyrics_structured_better
 
 
     def _convert_lyric_sentences_to_stuctured_words(self, lyrics_structured):
@@ -284,7 +337,7 @@ class LyricManager:
         ''' Turning recordtype into python primitives
         '''
 
-        #
+        # TODO: Update this text - it's not accurate anymore
         #   {
         #       lyric_full_sentence = "To the hip, the hippy"
         #       time_start = xxx.xxx,
@@ -302,38 +355,41 @@ class LyricManager:
         #
         #
 
-        lyrics_to_return = []
+        ready_to_export_lyrics = {
+            "schema_version": self.json_schema_version,
+            "lyric_lines": []
+        }
+
+        #lyrics_to_return = []
 
         for lyric in all_lyrics:
             # Assemble into sentences again for entry into dict / strings
             
-            if lyric.line_index == len(lyrics_to_return):
+            if lyric.line_index == len(ready_to_export_lyrics["lyric_lines"]):
 
                 lyric_line = {
-                    "lyric_full_sentence": lyric.word,
+                    "text": lyric.word,
                     "time_start": lyric.time_start,
                     "time_end": lyric.time_end,
-                    "lyrics": [{
-                        "word": lyric.word,
+                    "lyric_words": [{
+                        "text": lyric.word,
                         "time_start": lyric.time_start,
                         "time_end": lyric.time_end
                     }]
                 }
 
-                lyrics_to_return.append(lyric_line)
+                ready_to_export_lyrics["lyric_lines"].append(lyric_line)
+                #lyrics_to_return.append(lyric_line)
             else:
-                lyrics_to_return[lyric.line_index]["lyric_full_sentence"] += " " + lyric.word
-                lyrics_to_return[lyric.line_index]["time_end"] = lyric.time_end
-                lyrics_to_return[lyric.line_index]["lyrics"].append({
-                    "word": lyric.word,
+                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += " " + lyric.word
+                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_end"] = lyric.time_end
+                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["lyric_words"].append({
+                    "text": lyric.word,
                     "time_start": lyric.time_start,
                     "time_end": lyric.time_end
                 })
             
-        return lyrics_to_return
-
-            
-
+        return ready_to_export_lyrics
 
 
     def _create_lyrics_json(self, time_aligned_lyrics, lyrics_stuctured):
@@ -353,8 +409,13 @@ class LyricManager:
         return lyrics_json
 
 
+    def _string_list_to_string(self, string_list):
+        ''' Converts a list of strings into a single string without double spaces. '''
+        string = ' '.join(string_list)
+        return ' '.join(string.split())
 
-    def fetch_and_align_lyrics(self, path_to_audio, recursive=False, destructive=False, keep_lyrics=False):
+
+    def fetch_and_align_lyrics(self, path_to_audio, recursive=False, destructive=False, keep_lyrics=False, export_readable_json=False):
         ''' Fetches the things, and writes them down
 
         '''
@@ -372,24 +433,26 @@ class LyricManager:
         for audio_file in audio_files:
             logging.info(f"Processing: {audio_file}")
 
-            lyrics = None
+            lyrics_raw = None
 
             for lyric_fetcher in self.all_lyric_fetchers:
 
-                lyrics = lyric_fetcher.fetch_lyrics(audio_file)
+                lyrics_raw = lyric_fetcher.fetch_lyrics(audio_file)
 
-                if lyrics:
+                if lyrics_raw:
                     break
 
-            if not lyrics:
+            if not lyrics_raw:
                 logging.warn("Unable to retrieve lyrics.")
                 continue
 
-            lyrics_sanitized = self._sanitize_lyrics(lyrics)
+            # Clears non-lyric content like [verse 1] and empty lines
+            lyrics_sanitized = self._remove_non_lyrics(lyrics_raw)
 
-            # Turn list of strings into single string without double spaces
-            complete_lyric_string = ' '.join(lyrics_sanitized)
-            complete_lyric_string = ' '.join(complete_lyric_string.split())
+            test = self._convert_lyrics_to_lyrics_v2(lyrics_sanitized)
+
+            # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
+            complete_lyric_string = self._string_list_to_string(lyrics_sanitized)
 
             lyric_sanitized_file = audio_file.with_suffix(".lyrics_sanitized")
 
@@ -414,7 +477,10 @@ class LyricManager:
             # json_out_fds["debug_meta_lyrics"] = lyrics
 
             with open(path_to_json_lyrics_file, 'w') as file:
-                json.dump(json_to_write, file)
+                if export_readable_json:
+                    json.dump(json_to_write, file, indent=4)
+                else:
+                    json.dump(json_to_write, file)
 
             logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 

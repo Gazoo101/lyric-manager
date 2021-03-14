@@ -164,10 +164,6 @@ if __name__ == '__main__':
         parsed_settings.lyric_fetcher_genius_token,
         parsed_settings.path_to_NUSAutoLyrixAlignOffline)
 
-    # print("poopy")
-
-    # print("hey")
-
     incoming_parameters = sys.argv[1:]
 
     # # Various command-line debug overwrite tests
@@ -185,9 +181,6 @@ if __name__ == '__main__':
     # with open("D:/Code/LyricManager/settings.yaml") as file:
     #     config = yaml.safe_load(file)
 
-    print("meaty pops")
-
-
     #lyric_fetcher, lyric_aligner, opts = _parse_arguments(incoming_parameters)
 
     mylm = LyricManager(all_lyric_fetchers, lyric_aligner)
@@ -196,7 +189,6 @@ if __name__ == '__main__':
     recursive = parsed_settings.recursive_iteration
     keep_files = parsed_settings.keep_fetched_lyrics
     overwrite_generated_files = parsed_settings.overwrite_generated_file
+    export_readable_json = parsed_settings.export_readable_json
 
-    mylm.fetch_and_align_lyrics(path_to_audio, recursive, keep_files)
-
-    print("Done")
+    mylm.fetch_and_align_lyrics(path_to_audio, recursive, keep_files, export_readable_json)

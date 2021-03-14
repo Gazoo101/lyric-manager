@@ -53,7 +53,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
             line = line.strip()
             line_pieces = line.split(' ')
 
-            temp = WordAndTiming(word=line_pieces[2], time_start=line_pieces[0], time_end=line_pieces[1])
+            temp = WordAndTiming(word=line_pieces[2], time_start=float(line_pieces[0]), time_end=float(line_pieces[1]))
             timed_words.append(temp)
 
         return timed_words
