@@ -424,7 +424,8 @@ class LyricManager:
 
         json_out_fds = {}
 
-        audio_files = [audio_files[5]]
+        # To pull out and test one song
+        #audio_files = [audio_files[5]]
 
         for audio_file in audio_files:
             logging.info(f"Processing: {audio_file}")
