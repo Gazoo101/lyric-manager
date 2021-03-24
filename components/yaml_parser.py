@@ -27,7 +27,8 @@ Settings = namedtuple("Settings",
         'lyric_fetcher_genius_token',
         'keep_fetched_lyrics',
         'lyric_aligner',
-        'path_to_NUSAutoLyrixAlignOffline'
+        'path_to_NUSAutoLyrixAlignOffline',
+        'use_preexisting_files'
     ])
 
 class YamlParser():
@@ -39,7 +40,7 @@ class YamlParser():
 
         if path_to_yaml_file.exists() == False:
             error = "No settings.yaml found."
-            logging.warn(error)
+            logging.warning(error)
             raise RuntimeError(error)
 
         with open(path_to_yaml_file) as file:
@@ -65,7 +66,8 @@ class YamlParser():
             lyric_fetcher_genius_token=yaml_contents['lyric_fetcher_genius_token'],
             keep_fetched_lyrics=yaml_contents['keep_fetched_lyric_files'],
             lyric_aligner=lyric_aligner_type,
-            path_to_NUSAutoLyrixAlignOffline=path_to_NUSAutoLyrixAlignOffline
+            path_to_NUSAutoLyrixAlignOffline=path_to_NUSAutoLyrixAlignOffline,
+            use_preexisting_files=yaml_contents['use_preexisting_files']
         )
 
         return parsed_settings
@@ -87,7 +89,7 @@ class YamlParser():
         if (input_string.lower() not in enum_options.keys()):
             # We convert .keys() into a list() for prettier print output
             error_message = f'Unable to parse: "{input_string}" into {name_of_enum} enum. Possible options: {list(enum_options.keys())}'
-            logging.warn(error_message)
+            logging.warning(error_message)
             raise Exception(error_message)
             # self.logger.print_and_log_error(error_message)
             # raise StringToEnumParsingError(error_message)

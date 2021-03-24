@@ -16,18 +16,15 @@ from recordtype import recordtype
 # Pure timing
 WordAndTiming = namedtuple("WordAndTiming", ["word", "time_start", "time_end"])
 
-# More complete word
-Lyric = recordtype('Lyric', [('word', ''), ('line_index', -1), ('time_start', -1.0), ('time_end', -1.0)])
-
-# 2nd iteration which contains 3 variants of word:
-# 1. Full original which includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
-# 2. Single word render friendly which removes commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
-# 3. Alignment friendly - similar to single word render, except converts slangy words to full, e.g. "Glancing"
-LyricV2 = recordtype('Lyric',
+# AlignmentLyric is all data required to properly reassemble the full lyrics once the Aligner as processed the
+# raw text.
+AlignmentLyric = recordtype('AlignmentLyric',
     [
-        ('word_original', ''),
-        ('word_single', ''),
-        ('word_alignment', ''),
+        ('word_original', ''),  # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
+        ('word_single', ''),    # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
+        ('word_alignment', ''), # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
+        ('char_pre_word', ''),  # Contain's connective characters, such as ",',(,),-, and , (commas) 
+        ('char_post_word', ''), # Contain's connective characters, such as ",',(,),-, and , (commas)
         ('line_index', -1), 
         ('time_start', -1.0),
         ('time_end', -1.0)
@@ -116,7 +113,7 @@ class LyricManager:
         words_timing = [x.word for x in lyrics_timing_display]
 
         lyrics_structured_better_display = lyrics_structured_better[lsb_index:lsb_index+display_range]
-        words_structure = [x.word for x in lyrics_structured_better_display]
+        words_structure = [x.word_alignment for x in lyrics_structured_better_display]
 
         # TODO: Fix case index_offset > display_range
         words_timing[0] = f">{words_timing[0]}<"
@@ -131,23 +128,66 @@ class LyricManager:
         print(f"Structured:  [ {sd}")
 
 
-    def _create_lyric_v2(self, word_original, line_index):
+    def _create_alignmentlyric(self, word_original, line_index):
+        # Copied from above:
+        # ('word_original', ''),  # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
+        # ('word_single', ''),    # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
+        # ('word_alignment', ''), # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
 
         word_single=word_original
 
-        characters_to_remove = [',', '!', '(', ')']
+        # We intentionally do not remove
+        characters_to_remove = [',', '!', '(', ')', '"']
 
         for char in characters_to_remove:
             word_single = word_single.replace(char, '')
+
+        # If we encounter a hyphenated word, we've found that some aligners (notably the NUSAutoLyrixAlign) will simply
+        # process and return the individual portions without hyphens, so we'll try splitting the words up in advance in the
+        # hopes that this works equally well as it's easier to synchronize the word-pieces if they're split up in advance.
+        # If this ends up changing how the aligner aligns words, we may need to employ a more complex solution which doesn't
+        # split the words in advance, but must be able to split it when trying to match aligned words
+        if '-' in word_single:
+            # Hacky approach - fix up if it works
+            horse = 2
+
+            pieces = word_single.split('-')
+
+            alignment_pieces = []
+
+            for one_piece in pieces:
+
+                alignment_pieces.append(
+                    AlignmentLyric(
+                    word_original=one_piece,
+                    word_single=one_piece,
+                    word_alignment=one_piece, # Fix this once confirmed is working.
+                    line_index=line_index
+                ))
+
+            return alignment_pieces
+
+
+            horse = 2
+
+            
+
 
         word_alignment=word_single
         if word_single.lower().endswith("in'"):
             word_alignment = word_alignment[:-1] + "g"
         
-        return LyricV2(word_original=word_original, word_single=word_single, word_alignment=word_alignment, line_index=line_index)
+        alignment_lyric = AlignmentLyric(
+            word_original=word_original,
+            word_single=word_single,
+            word_alignment=word_alignment,
+            line_index=line_index
+            )
+        
+        return [alignment_lyric]
 
 
-    def _convert_lyrics_to_lyrics_v2(self, lyrics):
+    def _convert_lyrics_raw_to_alignmentlyrics(self, lyrics):
         '''
 
         Args:
@@ -161,7 +201,14 @@ class LyricManager:
 
             for word in lyric_line_parts:
 
-                lyrics_structured_better.append( self._create_lyric_v2(word, line_index) )
+                #lyrics_structured_better.append( self._create_alignmentlyric(word, line_index) )
+
+                # Switch to possibility to split up hyphenated words
+                aligned_lyrics = self._create_alignmentlyric(word, line_index)
+
+                for a_lyric in aligned_lyrics:
+                    lyrics_structured_better.append(a_lyric)
+
 
         return lyrics_structured_better
 
@@ -249,6 +296,7 @@ class LyricManager:
 
                 if debug_print:
                     self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured, lsb_index, index_offset, current_mismatch_tolerance)
+                    input("Press Enter to continue...")
 
                 # Fix out of range...
                 lsb = lyrics_structured[lsb_index + index_offset]
@@ -258,10 +306,8 @@ class LyricManager:
                 # Todo: Improve word-to-word comparisson 
                 if wat.word.lower() == lsb.word_alignment.lower():
                     #lsb_mismatch_count = 0
-                    lyrics_structured[lsb_index].time_start = wat.time_start
-                    lyrics_structured[lsb_index].time_end = wat.time_end
-
-                    
+                    lyrics_structured[lsb_index + index_offset].time_start = wat.time_start
+                    lyrics_structured[lsb_index + index_offset].time_end = wat.time_end
 
                     # If we find a 'later' match, we must move the lsb_index forward by the offset
                     # otherwise, it'll keep falling behind
@@ -305,7 +351,6 @@ class LyricManager:
         let's just verify that every single word has timing.
         
         '''
-
         lt_iter = iter(lyrics_timing)
 
         for line_index, lyric_line in enumerate(lyrics_stuctured):
@@ -372,10 +417,16 @@ class LyricManager:
                 }
 
                 ready_to_export_lyrics["lyric_lines"].append(lyric_line)
-                #lyrics_to_return.append(lyric_line)
             else:
                 ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += " " + lyric.word_original
-                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_end"] = lyric.time_end
+
+                # If the time_start of the lyricLine is undefined, we grab the first available lyricWord time_start
+                if (ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_start"] == -1):
+                    ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_start"] = lyric.time_start
+
+                # If the time_end of the lyricWord is undefined, we skip updating the lyricLine's time_end
+                if (lyric.time_end != -1):
+                    ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_end"] = lyric.time_end
                 ready_to_export_lyrics["lyric_lines"][lyric.line_index]["lyric_words"].append({
                     "original": lyric.word_original,
                     "single": lyric.word_single,
@@ -409,7 +460,13 @@ class LyricManager:
         return ' '.join(string.split())
 
 
-    def fetch_and_align_lyrics(self, path_to_audio, recursive=False, destructive=False, keep_lyrics=False, export_readable_json=False):
+    def fetch_and_align_lyrics(self,
+            path_to_audio, 
+            recursive=False, 
+            destructive=False, 
+            keep_lyrics=False, 
+            export_readable_json=False,
+            use_preexisting_files=True):
         ''' Fetches the things, and writes them down
 
         '''
@@ -440,17 +497,17 @@ class LyricManager:
                     break
 
             if not lyrics_raw:
-                logging.warn("Unable to retrieve lyrics.")
+                logging.warning("Unable to retrieve lyrics.")
                 continue
 
             # Clears non-lyric content like [verse 1] and empty lines
-            lyrics_sanitized = self._remove_non_lyrics(lyrics_raw)
+            lyrics_raw_sanitized = self._remove_non_lyrics(lyrics_raw)
 
-            lyrics_v2 = self._convert_lyrics_to_lyrics_v2(lyrics_sanitized)
+            alignment_lyrics = self._convert_lyrics_raw_to_alignmentlyrics(lyrics_raw_sanitized)
 
             lyrics_alignment_ready = []
 
-            for lyric in lyrics_v2:
+            for lyric in alignment_lyrics:
                 lyrics_alignment_ready.append(lyric.word_alignment)
 
             # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
@@ -465,10 +522,10 @@ class LyricManager:
             #intermediate_lyric_file = "path"
 
             # Hard-coded for 'Go-go's vacation' currently
-            time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=False)
+            time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=use_preexisting_files)
             #time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=True)
 
-            json_to_write = self._create_lyrics_json(time_aligned_lyrics, lyrics_v2)
+            json_to_write = self._create_lyrics_json(time_aligned_lyrics, alignment_lyrics)
 
             path_to_json_lyrics_file = audio_file.with_suffix(".aligned_lyrics")
 

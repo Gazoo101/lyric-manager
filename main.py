@@ -190,5 +190,12 @@ if __name__ == '__main__':
     keep_files = parsed_settings.keep_fetched_lyrics
     overwrite_generated_files = parsed_settings.overwrite_generated_file
     export_readable_json = parsed_settings.export_readable_json
+    use_preexisting_files = parsed_settings.use_preexisting_files
 
-    mylm.fetch_and_align_lyrics(path_to_audio, recursive, keep_files, export_readable_json=export_readable_json)
+    mylm.fetch_and_align_lyrics(
+        path_to_audio,
+        recursive,
+        keep_files,
+        export_readable_json=export_readable_json,
+        use_preexisting_files=use_preexisting_files
+        )

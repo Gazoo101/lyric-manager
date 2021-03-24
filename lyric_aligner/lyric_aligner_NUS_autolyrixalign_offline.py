@@ -68,7 +68,6 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         handle spaces in path's well. Therefore we eliminate all spaces in the
         temporary pathing.
         '''
-
         # Check if the saved raw version exists
         preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
 
@@ -79,6 +78,11 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
         if not self.path_aligner:
             logging.info('No path provided to NUSAutoLyrixAlign, skipping alignment.')
+
+            if not use_preexisting:
+                logging.warning("Without an aligner or access to a pre-existing alignment file, there's little reason to continue")
+                raise RuntimeError("No song aligner provided and pre-existing alignment files disallowed.")
+
             return []
 
         # TODO: Support raw .wav if there's enough call for it.
@@ -111,13 +115,13 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         # The most dependable way to ensure that the NUSAutoLyrixAlign process succeeded, is to
         # check if the temporary output file has been updated.
         if path_temp_file_lyric_aligned.exists() == False:
-            logging.warn(f"Unable to create lyrics for {path_to_audio_file}")
+            logging.warning(f"Unable to create lyrics for {path_to_audio_file}")
             return []
 
         datetime_lyric_aligned = datetime.fromtimestamp(path_temp_file_lyric_aligned.stat().st_ctime)
 
         if datetime_before_alignment > datetime_lyric_aligned:
-            logging.warn('Lyric aligned existed before completion O_o')
+            logging.warning('Lyric aligned existed before completion O_o')
             return []
 
         # While we're building this tool, we'll maintain copies of the aligned lyrics in order
