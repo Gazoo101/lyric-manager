@@ -2,9 +2,9 @@
 import shutil
 import os
 
-# 1st Party
-
 # 3rd Party
+
+# 1st Party
 
 class FileOperations():
 
