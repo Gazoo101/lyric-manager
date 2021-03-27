@@ -153,7 +153,7 @@ if __name__ == '__main__':
         ]
     )
 
-    logging.info('Lyric Manager v1.1')
+    logging.info('Lyric Manager v1.2')
 
     yaml_parser = YamlParser()
     parsed_settings = yaml_parser.parse( path_to_settings )

@@ -17,28 +17,17 @@ from components import AlignmentLyricsHandler
 # Pure timing
 WordAndTiming = namedtuple("WordAndTiming", ["word", "time_start", "time_end"])
 
-# # AlignmentLyric is all data required to properly reassemble the full lyrics once the Aligner as processed the
-# # raw text.
-# AlignmentLyric = recordtype('AlignmentLyric',
-#     [
-#         ('word_original', ''),  # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
-#         ('word_single', ''),    # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
-#         ('word_alignment', ''), # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
-#         ('char_pre_word', ''),  # Contain's connective characters, such as ",',(,),-, and , (commas) 
-#         ('char_post_word', ''), # Contain's connective characters, such as ",',(,),-, and , (commas)
-#         ('line_index', -1), 
-#         ('time_start', -1.0),
-#         ('time_end', -1.0)
-#     ]
-# )
-
 class LyricManager:
 
     def __init__(self, all_lyric_fetchers, lyric_aligner):
         # The version of aligned lyrics json the LyricManager will export to.
         # A simple, but imperfect, approach to ensure readers of the lyric data
         # won't be surprised or unexpectedly broken.
-        self.json_schema_version = "1.1.0"
+
+        # MAJOR version when you make incompatible API changes,
+        # MINOR version when you add functionality in a backwards compatible manner, and
+        # PATCH version when you make backwards compatible bug fixes.
+        self.json_schema_version = "2.0.0"
 
         self.alignment_lyrics_handler = AlignmentLyricsHandler(self.json_schema_version)
 
@@ -48,6 +37,7 @@ class LyricManager:
 
     def _percentage(self, part, whole):
         return 100 * float(part)/float(whole)
+
 
     def _get_all_audio(self, path, recursive):
 
@@ -63,6 +53,7 @@ class LyricManager:
             all_audio_files = [Path(entry.path) for entry in os.scandir(path) if entry.name.endswith("mp3")]
 
         return all_audio_files
+
 
     def _remove_non_lyrics(self, lyrics):
         ''' Returns a list of sanitized lyric strings.

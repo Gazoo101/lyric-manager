@@ -11,11 +11,11 @@ from recordtype import recordtype
 # raw text.
 AlignmentLyric = recordtype('AlignmentLyric',
     [
-        ('word_original', ''),  # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
-        ('word_single', ''),    # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
-        ('word_alignment', ''), # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
-        ('char_pre_word', ''),  # Contain's connective characters, such as ",',(,),-, and , (commas) 
-        ('char_post_word', ''), # Contain's connective characters, such as ",',(,),-, and , (commas)
+        ('word_original', ''),          # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
+        ('word_single', ''),            # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
+        ('word_alignment', ''),         # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
+        ('word_split_char_pre', ''),    # The pre-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
+        ('word_split_char_post', ''),   # The pos-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
         ('line_index', -1), 
         ('time_start', -1.0),
         ('time_end', -1.0)
@@ -32,6 +32,7 @@ class AlignmentLyricsHandler():
     def __init__(self, json_schema_version):
         self.json_schema_version = json_schema_version
 
+
     def convert_lyrics_raw_to_alignmentlyrics(self, lyrics):
         '''
 
@@ -41,94 +42,106 @@ class AlignmentLyricsHandler():
         Returns:
             A list of Alignment
         '''
-        lyrics_structured_better = []
+        segmented_alignment_lyrics = self._split_lyrics_raw_spoken_segments(lyrics)
+
+        self._polish_alignmentlyrics(segmented_alignment_lyrics)
+
+        return segmented_alignment_lyrics
+    
+
+    def _split_lyrics_raw_spoken_segments(self, lyrics):
+        """ Splits raw text lyrics into spoken segments, contained in AlignmentLyrics.
+
+        Spoken segments are split based on spaces and hyphens. This approach was primarily
+        chosen because the lyric alignment times these pieces separarately, and therefore
+        we're interested in the flexibility of also rendering them separately. 
+
+        Args:
+            lyrics: A list of strings.
+        """
+        segmented_alignment_lyrics = []
 
         for line_index, lyric_line in enumerate(lyrics):
 
-            lyric_line_parts = lyric_line.split(' ')
+            # The first priority is to split the raw lyrics up into the segments that recieve individual
+            # timing and thus will be individually rendered.
 
-            for word in lyric_line_parts:
+            # This splitting algorithm is ok because we only will split rendered segments by 2 types of
+            # chars. Spaces ' ' and hyphens '-'. If the number of chars that create segment split
+            # increases, this 2x loop stops being tennable.
+            spaced_lyric_line_parts = lyric_line.split(' ')
+            spaced_alignment_lyrics = []
 
-                # _create_alignmentlyric() returns a list, because if a word ends up being hyphenated,
-                # e.g. hiphy-hip-cat, the function will break up the word and return multiple words.
-                aligned_lyrics = self._create_alignmentlyric(word, line_index)
+            for spaced_word in spaced_lyric_line_parts:
 
-                for a_lyric in aligned_lyrics:
-                    lyrics_structured_better.append(a_lyric)
+                hyphenate_parts = spaced_word.split('-')
+                hyphenated_alignment_lyrics = []
 
+                # Is the word hypenated
+                if len(hyphenate_parts) > 1:
 
-        return lyrics_structured_better
+                    for hyphened_word in hyphenate_parts:
 
-    def _create_alignmentlyric(self, word_original, line_index):
-        ''' Coverts a single (possibly hyphenated) word to one or more AlignmentLyric's. '''
+                        alignment_lyric = AlignmentLyric(
+                            word_original=hyphened_word,
+                            word_split_char_pre='-', # Add post-dash to all pieces. Remove the last one later.
+                            word_split_char_post='-',
+                            line_index=line_index
+                        )
 
-        # Copied from above:
-        # ('word_original', ''),  # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
-        # ('word_single', ''),    # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
-        # ('word_alignment', ''), # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
+                        hyphenated_alignment_lyrics.append(alignment_lyric)
+                    
+                    hyphenated_alignment_lyrics[0].word_split_char_pre = ' '
+                    hyphenated_alignment_lyrics[-1].word_split_char_post = ' '
 
-        word_single = word_original
+                    spaced_alignment_lyrics.extend(hyphenated_alignment_lyrics)
+                    continue
 
-        # We intentionally do not remove
-        characters_to_remove = [',', '!', '(', ')', '"']
-
-        for char in characters_to_remove:
-            word_single = word_single.replace(char, '')
-
-        # - Hyphenated word handling -
-        # Our brief experimentation has shown that the lyric aligner doesn't change it's alignment-prediction if we pre-split
-        # hyphenated words. Given that it makes lyric-to-alignment-timing matching far easier by pre-splitting the hyphenated
-        # words, we prefer this approach.
-        all_alignment_lyrics = []
-
-        if '-' in word_single:
-            pieces = word_single.split('-')
-
-            # If the word is hyphenated we can't really use 'word_original' anymore
-
-            for one_piece in pieces:
                 alignment_lyric = AlignmentLyric(
-                    word_original=one_piece,
-                    word_single=one_piece,
-                    word_alignment=one_piece, # Fix this once confirmed is working.
-                    char_post_word='-', # Add post-dash to all pieces. Remove the last one later.
+                    word_original=spaced_word,
+                    word_split_char_pre=' ', # Add post-dash to all pieces. Remove the last one later.
+                    word_split_char_post=' ',
                     line_index=line_index
                 )
 
-                all_alignment_lyrics.append(alignment_lyric)
-            
-            # Remove last dash
-            all_alignment_lyrics[-1].char_post_word = ''
+                spaced_alignment_lyrics.append(alignment_lyric)
 
-            if word_original.startswith('"'):
-                all_alignment_lyrics[0].char_pre_word = '"'
+            spaced_alignment_lyrics[0].word_split_char_pre = ''
+            spaced_alignment_lyrics[-1].word_split_char_post = ''
 
-            if word_original.endswith('"'):
-                all_alignment_lyrics[-1].char_post_word = '"'
-        else:
-            alignment_lyric = AlignmentLyric(
-                word_original=word_original,
-                word_single=word_single,
-                word_alignment=word_single,
-                line_index=line_index
-            )
-
-            if word_original.startswith('"'):
-                alignment_lyric.char_pre_word = '"'
-
-            if word_original.endswith('"'):
-                alignment_lyric.char_post_word = '"'
-
-            all_alignment_lyrics.append(alignment_lyric)
+            segmented_alignment_lyrics.extend(spaced_alignment_lyrics)
+        
+        return segmented_alignment_lyrics
 
 
-        # Fixing "in'" => "ing"
-        for a_lyric in all_alignment_lyrics:
+    def _polish_alignmentlyrics(self, all_alignment_lyrics):
+
+        for alignment_lyric in all_alignment_lyrics:
+
+            # Copied from above:
+            # ('word_original', ''),  # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
+            # ('word_single', ''),    # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
+            # ('word_alignment', ''), # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
+
+            word_single = alignment_lyric.word_original
+
+            # Hyphens and spaces are handled already.
+            characters_to_remove = [',', '!', '(', ')', '"']
+
+            for char in characters_to_remove:
+                word_single = word_single.replace(char, '')
+
+            word_alignment = word_single
+
+            # Fixing "in'" => "ing"
+            #for a_lyric in all_alignment_lyrics:
             # I think this makes a copy and won't work as intended...
-            if a_lyric.word_alignment.lower().endswith("in'"):
-                a_lyric.word_alignment = a_lyric.word_alignment[:-1] + "g"
+            if word_alignment.lower().endswith("in'"):
+                word_alignment = word_alignment[:-1] + "g"
 
-        return all_alignment_lyrics
+            alignment_lyric.word_single = word_single
+            alignment_lyric.word_alignment = word_alignment
+
 
     def convert_aligmentlyrics_to_dict(self, all_lyrics):
         ''' Turning recordtype into python primitives
@@ -157,8 +170,6 @@ class AlignmentLyricsHandler():
             "lyric_lines": []
         }
 
-        #lyrics_to_return = []
-
         for lyric in all_lyrics:
             # Assemble into sentences again for entry into dict / strings
             
@@ -172,8 +183,8 @@ class AlignmentLyricsHandler():
                     "lyric_words": [{
                         "original": lyric.word_original,
                         "single": lyric.word_single,
-                        "char_pre_word": lyric.char_pre_word,
-                        "char_post_word": lyric.char_post_word,
+                        "word_split_char_pre": lyric.word_split_char_pre,
+                        "word_split_char_post": lyric.word_split_char_post,
                         "time_start": lyric.time_start,
                         "time_end": lyric.time_end
                     }]
@@ -181,10 +192,7 @@ class AlignmentLyricsHandler():
 
                 ready_to_export_lyrics["lyric_lines"].append(lyric_line)
             else:
-                if ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"].endswith("-"):
-                    ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += self._get_alignment_lyric_with_pre_post_chars(lyric)                
-                else:
-                    ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += " " + self._get_alignment_lyric_with_pre_post_chars(lyric)
+                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += self._get_alignment_lyric_with_pre_post_chars(lyric) 
 
                 # If the time_start of the lyricLine is undefined, we grab the first available lyricWord time_start
                 if (ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_start"] == -1):
@@ -193,16 +201,18 @@ class AlignmentLyricsHandler():
                 # If the time_end of the lyricWord is undefined, we skip updating the lyricLine's time_end
                 if (lyric.time_end != -1):
                     ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_end"] = lyric.time_end
+                
                 ready_to_export_lyrics["lyric_lines"][lyric.line_index]["lyric_words"].append({
                     "original": lyric.word_original,
                     "single": lyric.word_single,
-                    "char_pre_word": lyric.char_pre_word,
-                    "char_post_word": lyric.char_post_word,
+                    "word_split_char_pre": lyric.word_split_char_pre,
+                    "word_split_char_post": lyric.word_split_char_post,
                     "time_start": lyric.time_start,
                     "time_end": lyric.time_end
                 })
             
         return ready_to_export_lyrics
     
+
     def _get_alignment_lyric_with_pre_post_chars(self, alignment_lyric):
-        return alignment_lyric.char_pre_word + alignment_lyric.word_original + alignment_lyric.char_post_word
+        return alignment_lyric.word_original + alignment_lyric.word_split_char_post
