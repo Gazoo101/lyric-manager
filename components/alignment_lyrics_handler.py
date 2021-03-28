@@ -1,5 +1,5 @@
 # Python
-
+import re
 
 # 3rd Party
 from recordtype import recordtype
@@ -63,6 +63,9 @@ class AlignmentLyricsHandler():
 
         for line_index, lyric_line in enumerate(lyrics):
 
+            if line_index == 32:
+                horse = 2
+
             # The first priority is to split the raw lyrics up into the segments that recieve individual
             # timing and thus will be individually rendered.
 
@@ -74,7 +77,9 @@ class AlignmentLyricsHandler():
 
             for spaced_word in spaced_lyric_line_parts:
 
-                hyphenate_parts = spaced_word.split('-')
+                #hyphenate_parts = spaced_word.split('-')
+                # Regular .split() will split *all* hyphens, even end of word hyphens, which we don't want to split on.
+                hyphenate_parts = re.split(r"(?<=\w)-(?=\w)", spaced_word )
                 hyphenated_alignment_lyrics = []
 
                 # Is the word hypenated

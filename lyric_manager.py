@@ -66,8 +66,6 @@ class LyricManager:
         # 1. Reformat string into per-line for easier human manipulation
         all_lyric_lines = lyrics.splitlines()
 
-        
-
         sanitized_lyric_lines = []
 
         for lyric_line in all_lyric_lines:
@@ -91,6 +89,21 @@ class LyricManager:
         # complete_lyric_string = ' '.join(complete_lyric_string.split())
 
         return non_empty_lyric_lines
+
+    
+    def _replace_difficult_characters(self, lyrics):
+        """ Replaces characters that cause issues in the lyric rendering pipeline.
+
+        Rather than supporting every possible character, it's initially far simpler, to replace
+        the difficult ones and add support for more and more in the future
+
+        """
+        lyrics_cleaned = []
+
+        for lyric in lyrics:
+            lyrics_cleaned.append(lyric.replace("’", "'")) # Annoying almost-apostrophe
+
+        return lyrics_cleaned
 
 
     def _debug_print(self, lyrics_timing, wat_index, lyrics_structured_better, lsb_index, index_offset, mismatch_tolerance):
@@ -313,6 +326,8 @@ class LyricManager:
 
             # Clears non-lyric content like [verse 1] and empty lines
             lyrics_raw_sanitized = self._remove_non_lyrics(lyrics_raw)
+
+            lyrics_raw_sanitized = self._replace_difficult_characters(lyrics_raw_sanitized)
 
             #alignment_lyrics = self._convert_lyrics_raw_to_alignmentlyrics(lyrics_raw_sanitized)
             alignment_lyrics = self.alignment_lyrics_handler.convert_lyrics_raw_to_alignmentlyrics(lyrics_raw_sanitized)

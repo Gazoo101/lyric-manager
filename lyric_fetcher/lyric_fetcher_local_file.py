@@ -20,6 +20,9 @@ class LyricFetcherLocalFile(LyricFetcherInterface):
             
             with open(path_to_local_copy, 'r') as file:
                 file_contents = file.read()
+
+            with open(path_to_local_copy, 'r', encoding='utf8', errors='ignore') as file2:
+                file_other = file2.read()
             
             return file_contents
 
