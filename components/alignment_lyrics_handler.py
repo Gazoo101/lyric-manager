@@ -63,8 +63,8 @@ class AlignmentLyricsHandler():
 
         for line_index, lyric_line in enumerate(lyrics):
 
-            if line_index == 32:
-                horse = 2
+            # if line_index == 32:
+            #     horse = 2
 
             # The first priority is to split the raw lyrics up into the segments that recieve individual
             # timing and thus will be individually rendered.

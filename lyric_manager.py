@@ -73,6 +73,8 @@ class LyricManager:
             #complete_lyric_string = re.sub(r"\[.*\]", '', complete_lyric_string)
             lyric_line = re.sub(r"\[[a-zA-Z0-9 -]*\]", '', lyric_line)
 
+            lyric_line = lyric_line.strip()
+
             sanitized_lyric_lines.append(lyric_line)
 
         # Removes empty lines
@@ -99,6 +101,9 @@ class LyricManager:
 
         """
         lyrics_cleaned = []
+
+        # Recorded instance of "white's" being recognized, but "white’s" *not* being recognized
+        # Recorded instance of "I'm" being recognized, but not "Ims", "I'ms"
 
         for lyric in lyrics:
             lyrics_cleaned.append(lyric.replace("’", "'")) # Annoying almost-apostrophe
