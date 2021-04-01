@@ -1,0 +1,32 @@
+path_to_audio_files: C:/path/to/your/music
+
+recursively_parse_audio_file_path: False
+
+overwrite_existing_generated_files: True
+
+# By default LyricManager exports condensed, but valid JSON. Condensed meaning with few spaces,
+# few line breaks, no tabs, etc. However, for the purposes of debugging or modification, it's
+# useful to make the JSON data more readable by using spaces, indentation, and line-breaks
+# which this switch will encourage.
+export_readable_json: True
+
+# Supported fetchers:
+# LocalFile, Genius
+# Multiple fetches, and as well as an empty list is supported
+lyric_fetchers: [LocalFile, Genius]
+
+lyric_fetcher_genius_token:
+
+# TODO: Turn this into Enum, as we'll likely want fairly varied behavior for using pre-existing
+# or getting new files in for various situations.
+use_preexisting_files: True
+
+# In case we download them from some place (like genius)
+keep_fetched_lyric_files: True
+    
+# Supported aligners
+# NUSAutoLyrixAlignOffline, Disabled
+# TODO: Support NUSAutoLyrixAlignOnline
+lyric_aligner:
+
+path_to_NUSAutoLyrixAlignOffline: None
