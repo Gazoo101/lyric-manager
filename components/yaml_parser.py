@@ -51,6 +51,11 @@ class YamlParser():
         for fetcher_type in yaml_contents['lyric_fetchers']:
             lyric_fetcher_types.append(self._parse_string_to_enum(lyric_fetcher.LyricFetcherType, fetcher_type))
 
+        if not yaml_contents['lyric_aligner']:
+            error = "No lyric_aligned selected in settings.yaml."
+            logging.error(error)
+            raise RuntimeError(error)
+
         lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerType, yaml_contents['lyric_aligner'])
 
         path_to_NUSAutoLyrixAlignOffline = None
