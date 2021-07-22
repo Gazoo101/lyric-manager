@@ -11,7 +11,7 @@ to obtain the songs lyrics. Using the song.mp3 file and song.txt lyric file, Lyr
 
 Lyric Manager generates a series of intermediate files, and one final output with the extension `.aligned_lyrics` containing JSON, which looks something like this:
 
-```json
+```json5
 {
     "schema_version": "2.0.0",      // Commentary inserted for clarity (not present in actual output!)
     "lyric_lines": [
