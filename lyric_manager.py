@@ -334,7 +334,6 @@ class LyricManager:
 
             lyrics_raw_sanitized = self._replace_difficult_characters(lyrics_raw_sanitized)
 
-            #alignment_lyrics = self._convert_lyrics_raw_to_alignmentlyrics(lyrics_raw_sanitized)
             alignment_lyrics = self.alignment_lyrics_handler.convert_lyrics_raw_to_alignmentlyrics(lyrics_raw_sanitized)
 
             lyrics_alignment_ready = []
