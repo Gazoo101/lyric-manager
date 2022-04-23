@@ -8,8 +8,6 @@ import sys
 import logging
 from argparse import ArgumentParser
 from pathlib import Path
-from enum import Enum
-from venv import create
 
 # 3rd Party
 
@@ -71,46 +69,6 @@ def create_lyric_aligner(lyric_aligner_type, path_to_NUSAutoLyrixAlignOffline, p
     return lyric_aligner
 
 
-# def _parse_arguments(input_arguments):
-
-#     opts = parser.parse_args(incoming_parameters)
-
-#     if opts.audio_path.exists() == False:
-#         raise Exception("Provided audio path doesn't exist.")
-
-#     lyric_fetcher = None
-#     lyric_aligner = None
-
-#     if opts.lyric_fetcher == LyricFetcherInterface.Type.Disabled:
-#         print("Lyric Fetcher: Disabled")
-#         lyric_fetcher = LyricFetcherDisabled()
-#     elif opts.lyric_fetcher == LyricFetcherInterface.Type.LocalFile:
-#         print("Lyric Fetcher: Local File(s)")
-#         lyric_fetcher = LyricFetcherLocalFile()
-#     elif opts.lyric_fetcher == LyricFetcherInterface.Type.Genius:
-#         print("Lyric Fetcher: Genius Database")
-#         lyric_fetcher = LyricFetcherGenius(opts.genius_token)
-
-#     if opts.lyric_aligner == LyricAlignerInterface.Type.Disabled:
-#         print("Lyric Aligner: Disabled")
-#         lyric_aligner = LyricAlignerDisabled()
-#     elif opts.lyric_aligner == LyricAlignerInterface.Type.NUSAutoLyrixAlignOffline:
-#         print("Lyric Aligner: Local File(s)")
-#         lyric_aligner = LyricAlignerNUSAutoLyrixAlignOffline()
-#     elif opts.lyric_aligner == LyricAlignerInterface.Type.NUSAutoLyrixAlignOnline:
-#         print("Lyric Aligner: Genius Database")
-#         lyric_aligner = LyricAlignerNUSAutoLyrixAlignOnline()
-
-#     return lyric_fetcher, lyric_aligner, opts
-
-#     parser = argparse.ArgumentParser(description='Lyric Manager')
-
-#     parser.add_argument('-lf','--lyric_fetcher', type=LyricFetcher.Type, choices=list(LyricFetcher.Type), help='Lyric Fetcher Type')
-
-#     thingy = parser.parse_args(input_arguments)
-
-#     return parser.parse_args(input_arguments)
-
 def _command_line_arguments():
     ''' Code developed before the requirements and number of settings grew to an
     arguably unmanagable size. I will rewrite and introduce the command-line argument
@@ -160,8 +118,7 @@ if __name__ == '__main__':
     logging.info('Lyric Manager v1.5.0')
 
     yaml_parser = YamlParser()
-    parsed_settings = yaml_parser.parse_v2( path_to_settings )
-    #parsed_settings = yaml_parser.parse( path_to_settings )
+    parsed_settings = yaml_parser.parse( path_to_settings )
 
     all_lyric_fetchers = create_lyric_fetchers(
         parsed_settings['general']['lyric_fetchers'],
@@ -195,13 +152,6 @@ if __name__ == '__main__':
     #lyric_fetcher, lyric_aligner, opts = _parse_arguments(incoming_parameters)
 
     mylm = LyricManager(all_lyric_fetchers, lyric_aligner)
-
-    # path_to_audio = parsed_settings.path_to_audio_files
-    # recursive = parsed_settings['data']['path_to_audio_files_to_process']
-    # keep_files = parsed_settings.keep_fetched_lyrics
-    # overwrite_generated_files = parsed_settings.overwrite_generated_file
-    # export_readable_json = parsed_settings.export_readable_json
-    # use_preexisting_files = parsed_settings.use_preexisting_files
 
     mylm.fetch_and_align_lyrics(
         Path(parsed_settings['data']['path_to_audio_files_to_process']),

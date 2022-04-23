@@ -1,6 +1,5 @@
 # Python
 import os
-from enum import Enum
 from pathlib import Path
 import json
 import logging
