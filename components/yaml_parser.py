@@ -5,6 +5,8 @@ from collections import namedtuple
 import logging
 from pathlib import Path
 from enum import Enum
+from functools import partial
+from typing import Union
 
 # 3rd Party
 
@@ -23,21 +25,21 @@ import lyric_aligner
 # some parts as this is getting a bit silly...
 # Dataclass might be more reasonable to enable defaults, and why are we allowing for command-line? We'd not
 # need it any time soon.
-Settings = namedtuple("Settings",
-    [
-        'path_to_audio_files',
-        'recursive_iteration',
-        'overwrite_generated_file',
-        'file_output_location',
-        'file_output_path',
-        'export_readable_json',
-        'lyric_fetchers',
-        'lyric_fetcher_genius_token',
-        'keep_fetched_lyrics',
-        'lyric_aligner',
-        'path_to_NUSAutoLyrixAlignOffline',
-        'use_preexisting_files'
-    ])
+# Settings = namedtuple("Settings",
+#     [
+#         'path_to_audio_files',
+#         'recursive_iteration',
+#         'overwrite_generated_file',
+#         'file_output_location',
+#         'file_output_path',
+#         'export_readable_json',
+#         'lyric_fetchers',
+#         'lyric_fetcher_genius_token',
+#         'keep_fetched_lyrics',
+#         'lyric_aligner',
+#         'path_to_NUSAutoLyrixAlignOffline',
+#         'use_preexisting_files'
+#     ])
 
 class FileOutputLocation(StringEnum):
     NextToAudioFile = "NextToAudioFile"
@@ -46,9 +48,16 @@ class FileOutputLocation(StringEnum):
 class YamlParser():
 
     def __init__(self):
-        pass
+        self.parsing_funcs = {}
 
-    def parse(self, path_to_yaml_file):
+        self.parsing_funcs['lyric_fetchers'] = partial(self._parse_to_enum, lyric_fetcher.LyricFetcherType)
+        self.parsing_funcs['lyric_aligner'] = partial(self._parse_to_enum, lyric_aligner.LyricAlignerType)
+        self.parsing_funcs['file_output_location'] = partial(self._parse_to_enum, FileOutputLocation)
+
+    def parse(self, path_to_yaml_file:Path):
+        """
+        
+        """
 
         if path_to_yaml_file.exists() == False:
             error = "No settings.yaml found."
@@ -58,43 +67,95 @@ class YamlParser():
         yaml_contents = strictyaml.load(path_to_yaml_file.read_text())
         yaml_contents = yaml_contents.data
 
-        # with open(path_to_yaml_file) as file:
-        #     yaml_contents = yaml.safe_load(file)
+        self._rec_parse(yaml_contents)
+
+        return yaml_contents
+
+    def _rec_parse(self, yaml_dict:dict):
+        for key, value in yaml_dict.items():
+            #print(f"key: {key}")
+            
+            if isinstance(value, dict):
+                self._rec_parse(value)
+                continue
+
+            if key in self.parsing_funcs:
+                yaml_dict[key] = self.parsing_funcs[key](value)
+
+
+
+
+    # def parse(self, path_to_yaml_file):
+
+    #     if path_to_yaml_file.exists() == False:
+    #         error = "No settings.yaml found."
+    #         logging.warning(error)
+    #         raise RuntimeError(error)
+
+    #     yaml_contents = strictyaml.load(path_to_yaml_file.read_text())
+    #     yaml_contents = yaml_contents.data
+
+    #     # with open(path_to_yaml_file) as file:
+    #     #     yaml_contents = yaml.safe_load(file)
  
-        lyric_fetcher_types = []
+    #     lyric_fetcher_types = []
 
-        for fetcher_type in yaml_contents['lyric_fetchers']:
-            lyric_fetcher_types.append(self._parse_string_to_enum(lyric_fetcher.LyricFetcherType, fetcher_type))
+    #     for fetcher_type in yaml_contents['lyric_fetchers']:
+    #         lyric_fetcher_types.append(self._parse_string_to_enum(lyric_fetcher.LyricFetcherType, fetcher_type))
 
-        if not bool(yaml_contents['lyric_aligner']):
-            error = "No lyric_aligned selected in settings.yaml."
-            logging.error(error)
-            raise RuntimeError(error)
+    #     if not bool(yaml_contents['lyric_aligner']):
+    #         error = "No lyric_aligned selected in settings.yaml."
+    #         logging.error(error)
+    #         raise RuntimeError(error)
 
-        lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerType, yaml_contents['lyric_aligner'])
+    #     lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerType, yaml_contents['lyric_aligner'])
 
-        file_output_location = self._parse_string_to_enum(FileOutputLocation, yaml_contents['file_output_location'])
+    #     file_output_location = self._parse_string_to_enum(FileOutputLocation, yaml_contents['file_output_location'])
 
-        path_to_NUSAutoLyrixAlignOffline = None
-        if yaml_contents['path_to_NUSAutoLyrixAlignOffline'] != 'None':
-            path_to_NUSAutoLyrixAlignOffline = Path(yaml_contents['path_to_NUSAutoLyrixAlignOffline'])
+    #     path_to_NUSAutoLyrixAlignOffline = None
+    #     if yaml_contents['path_to_NUSAutoLyrixAlignOffline'] != 'None':
+    #         path_to_NUSAutoLyrixAlignOffline = Path(yaml_contents['path_to_NUSAutoLyrixAlignOffline'])
 
-        parsed_settings = Settings(
-            path_to_audio_files=Path(yaml_contents['path_to_audio_files']),
-            recursive_iteration=yaml_contents['recursively_parse_audio_file_path'],
-            overwrite_generated_file=yaml_contents['overwrite_existing_generated_files'],
-            file_output_location=file_output_location,
-            file_output_path=Path(yaml_contents['file_output_path']),
-            export_readable_json=yaml_contents['export_readable_json'],
-            lyric_fetchers=lyric_fetcher_types,
-            lyric_fetcher_genius_token=yaml_contents['lyric_fetcher_genius_token'],
-            keep_fetched_lyrics=yaml_contents['keep_fetched_lyric_files'],
-            lyric_aligner=lyric_aligner_type,
-            path_to_NUSAutoLyrixAlignOffline=path_to_NUSAutoLyrixAlignOffline,
-            use_preexisting_files=yaml_contents['use_preexisting_files']
-        )
+    #     parsed_settings = Settings(
+    #         path_to_audio_files=Path(yaml_contents['path_to_audio_files']),
+    #         recursive_iteration=yaml_contents['recursively_parse_audio_file_path'],
+    #         overwrite_generated_file=yaml_contents['overwrite_existing_generated_files'],
+    #         file_output_location=file_output_location,
+    #         file_output_path=Path(yaml_contents['file_output_path']),
+    #         export_readable_json=yaml_contents['export_readable_json'],
+    #         lyric_fetchers=lyric_fetcher_types,
+    #         lyric_fetcher_genius_token=yaml_contents['lyric_fetcher_genius_token'],
+    #         keep_fetched_lyrics=yaml_contents['keep_fetched_lyric_files'],
+    #         lyric_aligner=lyric_aligner_type,
+    #         path_to_NUSAutoLyrixAlignOffline=path_to_NUSAutoLyrixAlignOffline,
+    #         use_preexisting_files=yaml_contents['use_preexisting_files']
+    #     )
 
-        return parsed_settings
+    #     return parsed_settings
+
+
+    def _parse_to_enum(self, string_enum, input_string: Union[list, str]):
+        """ A generic parser which converts a given string into the appropriate StringEnum.
+
+        Args:
+            string_enum: An enum object expected to derive from StringEnum.
+            input_string: The string provided in the Settings file.
+        Returns:
+            The specific Enum object that the given string matches in the given derived
+            StringEnum object.
+        """
+        # enum_options = string_enum.as_dict()
+        # name_of_enum = string_enum.__name__
+
+        if isinstance(input_string, list):
+            return_list = []
+
+            for elem in input_string:
+                return_list.append(self._parse_string_to_enum(string_enum, elem))
+
+            return return_list
+
+        return self._parse_string_to_enum(string_enum, input_string)
 
 
     def _parse_string_to_enum(self, string_enum, input_string):

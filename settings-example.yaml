@@ -1,0 +1,49 @@
+# LyricManager Settings File
+
+general:
+  # Supported lyric fetches:
+  # - LocalFile
+  # - Genius
+  # - LyricsDotOvh (Not fully implemented)
+  # If left empty, LyricManager will assume local files are available?
+  lyric_fetchers:
+    - LocalFile
+    - Genius
+
+  # Required, if lyric_fetchers includes Genius
+  lyric_fetcher_genius_token:
+
+  # Supported lyric aligners:
+  #   - NUSAutoLyrixAlignOffline
+  #   - NUSAutoLyrixAlignOnline (Not fully implemented)
+  #   - Disabled
+  lyric_aligner:
+
+  # Required, if lyric_aligner=NUSAutoLyrixAlignOffline
+  path_to_NUSAutoLyrixAlignOffline: None
+
+  # LyricManager supports two export_readable_json settings:
+  #   - False: Few spaces, few line breaks, no tabs. Intended for low disk space consumtion.
+  #   - True: Indentation, lots of spaces and line breaks. Intended for readability and debugging.
+  export_readable_json: True
+
+data:
+  # Folder with music for LyricManager to parse
+  path_to_audio_files_to_process: C:/path/to/your/music
+
+  # Any folders added here will be excluded from processing. Mainly useful for recursive parsing.
+  folders_to_exclude:
+
+  recursively_parse_audio_file_path: False
+
+  overwrite_existing_generated_files: True
+
+  file_output_location: SeparateDirectory
+  path_to_output_files:
+
+  # TODO: Turn this into Enum, as we'll likely want fairly varied behavior for using pre-existing
+  # or getting new files in for various situations.
+  use_preexisting_files: True
+
+  # In case we download them from some place (like genius)
+  keep_fetched_lyric_files: True

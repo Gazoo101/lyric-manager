@@ -142,6 +142,8 @@ if __name__ == '__main__':
     path_to_log = path_to_application / "lyric_manager.log"
     path_to_settings = path_to_application / "settings.yaml"
 
+    print("jucy pops")
+
     format_time_level_message = "%(asctime)s [%(levelname)s] %(message)s" # Original
     format_level_file_func_message = "[%(levelname)s][%(filename)s - %(funcName)25s() ] %(message)s"
 
@@ -158,24 +160,20 @@ if __name__ == '__main__':
     logging.info('Lyric Manager v1.5.0')
 
     yaml_parser = YamlParser()
-    parsed_settings = yaml_parser.parse( path_to_settings )
+    parsed_settings = yaml_parser.parse_v2( path_to_settings )
+    #parsed_settings = yaml_parser.parse( path_to_settings )
 
     all_lyric_fetchers = create_lyric_fetchers(
-        parsed_settings.lyric_fetchers,
-        parsed_settings.lyric_fetcher_genius_token,
-        parsed_settings.file_output_path)
-
-    lyric_aligner = create_lyric_aligner(
-        parsed_settings.lyric_aligner,
-        parsed_settings.path_to_NUSAutoLyrixAlignOffline,
-        parsed_settings.file_output_path
+        parsed_settings['general']['lyric_fetchers'],
+        parsed_settings['general']['lyric_fetcher_genius_token'],
+        parsed_settings['data']['path_to_output_files']
     )
 
-    # all_lyric_fetchers, lyric_aligner = lyric_fetcher_aligner_from_enum_to_class(
-    #     parsed_settings.lyric_fetchers,
-    #     parsed_settings.lyric_aligner,
-    #     parsed_settings.lyric_fetcher_genius_token,
-    #     parsed_settings.path_to_NUSAutoLyrixAlignOffline)
+    lyric_aligner = create_lyric_aligner(
+        parsed_settings['general']['lyric_aligner'],
+        parsed_settings['general']['path_to_NUSAutoLyrixAlignOffline'],
+        parsed_settings['data']['path_to_output_files']
+    )
 
     incoming_parameters = sys.argv[1:]
 
@@ -198,19 +196,19 @@ if __name__ == '__main__':
 
     mylm = LyricManager(all_lyric_fetchers, lyric_aligner)
 
-    path_to_audio = parsed_settings.path_to_audio_files
-    recursive = parsed_settings.recursive_iteration
-    keep_files = parsed_settings.keep_fetched_lyrics
-    overwrite_generated_files = parsed_settings.overwrite_generated_file
-    export_readable_json = parsed_settings.export_readable_json
-    use_preexisting_files = parsed_settings.use_preexisting_files
+    # path_to_audio = parsed_settings.path_to_audio_files
+    # recursive = parsed_settings['data']['path_to_audio_files_to_process']
+    # keep_files = parsed_settings.keep_fetched_lyrics
+    # overwrite_generated_files = parsed_settings.overwrite_generated_file
+    # export_readable_json = parsed_settings.export_readable_json
+    # use_preexisting_files = parsed_settings.use_preexisting_files
 
     mylm.fetch_and_align_lyrics(
-        path_to_audio,
-        recursive,
-        keep_files,
-        export_readable_json=export_readable_json,
-        use_preexisting_files=use_preexisting_files,
-        file_output_location=parsed_settings.file_output_location,
-        file_output_path=parsed_settings.file_output_path
+        Path(parsed_settings['data']['path_to_audio_files_to_process']),
+        parsed_settings['data']['recursively_parse_audio_file_path'],
+        parsed_settings['data']['keep_fetched_lyric_files'],   # Not currently respected I think...
+        export_readable_json=parsed_settings['general']['export_readable_json'],
+        use_preexisting_files=parsed_settings['data']['use_preexisting_files'],
+        file_output_location=parsed_settings['data']['file_output_location'],
+        file_output_path=Path(parsed_settings['data']['path_to_output_files'])
     )

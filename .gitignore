@@ -1,4 +1,5 @@
 # Hand-crafted additions
+.vscode/*
 settings.yaml
 
 # Byte-compiled / optimized / DLL files

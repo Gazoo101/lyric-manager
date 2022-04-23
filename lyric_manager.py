@@ -238,7 +238,7 @@ class LyricManager:
 
     # TODO: Convert to dataclass and implement method chaining
     def fetch_and_align_lyrics(self,
-            path_to_audio, 
+            path_to_audio:Path, 
             recursive=False, 
             destructive=False, 
             keep_lyrics=False, 
@@ -246,9 +246,18 @@ class LyricManager:
             use_preexisting_files=True,
             file_output_location=FileOutputLocation.NextToAudioFile,
             file_output_path:Path=None):
-        ''' Fetches the things, and writes them down
+        """ Fetches and aligns lyrics using various external modules.
 
-        '''
+        Args:
+            path_to_audio:
+            recursive:
+            destructive: N/A
+            keep_lyrics: N/A
+            export_readable_json:
+            use_preexisting_files:
+            file_output_locations:
+            file_output_path:
+        """
 
         # This should probably occur in the LyricManager constructor!
         if file_output_path:
@@ -382,75 +391,3 @@ class LyricManager:
 
                 logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 
-
-
-        # for audio_file in all_audio_files:
-        #     logging.info(f"Processing: {audio_file}")
-
-        #     lyrics_raw = None
-
-        #     for lyric_fetcher in self.all_lyric_fetchers:
-
-        #         lyrics_raw = lyric_fetcher.fetch_lyrics(audio_file)
-
-        #         if lyrics_raw:
-        #             break
-
-        #     if not lyrics_raw:
-        #         logging.warning("Unable to retrieve lyrics.")
-        #         continue
-
-        #     # Clears non-lyric content like [verse 1] and empty lines
-        #     lyrics_raw_sanitized = self._remove_non_lyrics(lyrics_raw)
-
-        #     lyrics_raw_sanitized = self._replace_difficult_characters(lyrics_raw_sanitized)
-
-        #     alignment_lyrics = self.alignment_lyrics_handler.convert_lyrics_raw_to_alignmentlyrics(lyrics_raw_sanitized)
-
-        #     lyrics_alignment_ready = []
-
-        #     for lyric in alignment_lyrics:
-        #         lyrics_alignment_ready.append(lyric.word_alignment)
-
-        #     # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
-        #     complete_lyric_string = self._string_list_to_string(lyrics_alignment_ready)
-
-        #     lyric_sanitized_file = audio_file.with_suffix(".lyrics_sanitized")
-
-        #     with open(lyric_sanitized_file, 'wt') as file:
-        #         file.write(complete_lyric_string)
-
-        #     # TODO: Write intermediate lyric file on-disk for aligner tool to use
-        #     #intermediate_lyric_file = "path"
-
-        #     # Hard-coded for 'Go-go's vacation' currently
-        #     time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=use_preexisting_files)
-        #     #time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=True)
-
-        #     #json_to_write = self._create_lyrics_json(time_aligned_lyrics, alignment_lyrics)
-
-        #     lyrics_structured_aligned = self._match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
-
-        #     # recordtype can't be auto-converted to json, so we must turn it into a dict
-        #     #lyrics_json = self._convert_lyric_recordtype_to_dict(lyrics_structured_aligned)
-        #     json_to_write = self.alignment_lyrics_handler.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
-
-        #     path_to_json_lyrics_file = audio_file.with_suffix(".aligned_lyrics")
-
-        #     # # horsie2 = 2
-
-        #     # # lyrics = self.lyric_fetcher.fetch_lyrics("The Go-Go's", "Vacation")
-
-        #     # json_out_fds["debug_meta_lyrics"] = lyrics
-
-        #     with open(path_to_json_lyrics_file, 'w') as file:
-        #         if export_readable_json:
-        #             json.dump(json_to_write, file, indent=4)
-        #         else:
-        #             json.dump(json_to_write, file)
-
-        #     logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
-
-
-
-        #     hello = 2
