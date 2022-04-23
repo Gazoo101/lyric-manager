@@ -4,9 +4,6 @@ from enum import Enum
 from pathlib import Path
 import json
 import logging
-#from posix import POSIX_FADV_NOREUSE
-import re
-# from collections import namedtuple
 
 # 3rd Party
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -17,9 +14,6 @@ from components import AlignmentLyricsHandler
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
 from components import LyricSanitizer
-
-# Pure timing
-#WordAndTiming = namedtuple("WordAndTiming", ["word", "time_start", "time_end"])
 
 
 class LyricManager:
@@ -275,13 +269,26 @@ class LyricManager:
         # To pull out and test one song
         #audio_files = [audio_files[5]]
 
+
+
         
         # For design purposes we opt to break the loop into per-task loops. Makes the code easier to
         # follow, as well as making it easier to focus on fixing and debugging all issues pertaining
         # to a particular functionality.
 
         with logging_redirect_tqdm():
-            lyric_align_tasks = [AudioLyricAlignTask(audio_file) for audio_file in all_audio_files]
+
+            # AudioLyricAlignTask() will throw exceptions in the case of unexpected filenames
+            lyric_align_tasks = []
+            for path_to_audio_file in all_audio_files:
+                try:
+                    task = AudioLyricAlignTask(path_to_audio_file)
+                    lyric_align_tasks.append(task)
+                except IndexError:
+                    logging.warning(f"The audio filename: '{path_to_audio_file}' was malformed.")
+                except:
+                    logging.exception(f"Unable to convert '{path_to_audio_file}' into Task object.")
+                    
 
             # AudioLyticAlign == ala
             lyric_align_tasks_valid = []

@@ -3,7 +3,11 @@ from pathlib import Path
 from components import AudioLyricAlignTask
 
 class LyricFetcherLyricsDotOvh(ABC):
-    """ Retrieves Lyrics from Lyrics.ovh via <to-be-decided>. """
+    """ Retrieves Lyrics from Lyrics.ovh via <to-be-decided>.
+    
+    Note: This class is not yet implemented.
+    
+    """
 
     def __init__(self, file_extension: str, path_to_output_dir: Path=None):
         self.file_extension = file_extension
