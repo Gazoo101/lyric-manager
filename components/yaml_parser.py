@@ -1,13 +1,15 @@
 # Python
 #from typing import NamedTuple
-import yaml
+import strictyaml
 from collections import namedtuple
 import logging
 from pathlib import Path
+from enum import Enum
 
 # 3rd Party
 
 # 1st Party
+from components import StringEnum
 
 #from lyric_aligner import LyricAlignerType
 #from lyric_fetcher import LyricFetcherType
@@ -17,11 +19,17 @@ from pathlib import Path
 import lyric_fetcher
 import lyric_aligner
 
+# TODO: Replace with dataclass, or even better, consider replacing with just easydict and converting
+# some parts as this is getting a bit silly...
+# Dataclass might be more reasonable to enable defaults, and why are we allowing for command-line? We'd not
+# need it any time soon.
 Settings = namedtuple("Settings",
     [
         'path_to_audio_files',
         'recursive_iteration',
         'overwrite_generated_file',
+        'file_output_location',
+        'file_output_path',
         'export_readable_json',
         'lyric_fetchers',
         'lyric_fetcher_genius_token',
@@ -30,6 +38,10 @@ Settings = namedtuple("Settings",
         'path_to_NUSAutoLyrixAlignOffline',
         'use_preexisting_files'
     ])
+
+class FileOutputLocation(StringEnum):
+    NextToAudioFile = "NextToAudioFile"
+    SeparateDirectory = "SeparateDirectory"
 
 class YamlParser():
 
@@ -43,20 +55,25 @@ class YamlParser():
             logging.warning(error)
             raise RuntimeError(error)
 
-        with open(path_to_yaml_file) as file:
-            yaml_contents = yaml.safe_load(file)
+        yaml_contents = strictyaml.load(path_to_yaml_file.read_text())
+        yaml_contents = yaml_contents.data
+
+        # with open(path_to_yaml_file) as file:
+        #     yaml_contents = yaml.safe_load(file)
  
         lyric_fetcher_types = []
 
         for fetcher_type in yaml_contents['lyric_fetchers']:
             lyric_fetcher_types.append(self._parse_string_to_enum(lyric_fetcher.LyricFetcherType, fetcher_type))
 
-        if not yaml_contents['lyric_aligner']:
+        if not bool(yaml_contents['lyric_aligner']):
             error = "No lyric_aligned selected in settings.yaml."
             logging.error(error)
             raise RuntimeError(error)
 
         lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerType, yaml_contents['lyric_aligner'])
+
+        file_output_location = self._parse_string_to_enum(FileOutputLocation, yaml_contents['file_output_location'])
 
         path_to_NUSAutoLyrixAlignOffline = None
         if yaml_contents['path_to_NUSAutoLyrixAlignOffline'] != 'None':
@@ -66,6 +83,8 @@ class YamlParser():
             path_to_audio_files=Path(yaml_contents['path_to_audio_files']),
             recursive_iteration=yaml_contents['recursively_parse_audio_file_path'],
             overwrite_generated_file=yaml_contents['overwrite_existing_generated_files'],
+            file_output_location=file_output_location,
+            file_output_path=Path(yaml_contents['file_output_path']),
             export_readable_json=yaml_contents['export_readable_json'],
             lyric_fetchers=lyric_fetcher_types,
             lyric_fetcher_genius_token=yaml_contents['lyric_fetcher_genius_token'],

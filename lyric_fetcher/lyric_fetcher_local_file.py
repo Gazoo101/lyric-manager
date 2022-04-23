@@ -1,19 +1,21 @@
 # Python
 import logging
+from pathlib import Path
 
 # 3rd Party
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
+from components import AudioLyricAlignTask
 
 class LyricFetcherLocalFile(LyricFetcherInterface):
 
-    def __init__(self):
-        super().__init__(".txt")
+    def __init__(self, path_to_output_dir:Path = None):
+        super().__init__(".txt", path_to_output_dir)
 
-    def fetch_lyrics(self, path_to_song):
+    def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask):
 
-        path_to_local_copy = path_to_song.with_suffix(self.file_extension)
+        path_to_local_copy = audio_lyric_align_task.path_to_audio_file.with_suffix(self.file_extension)
 
         if path_to_local_copy.exists():
             logging.info(f"Using local copy: {path_to_local_copy}")

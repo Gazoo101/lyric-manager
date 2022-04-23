@@ -8,10 +8,11 @@ import sys
 import logging
 from argparse import ArgumentParser
 from pathlib import Path
-
-from yaml import parse
+from enum import Enum
+from venv import create
 
 # 3rd Party
+
 
 # 1st Party
 #from components import FileOps
@@ -32,31 +33,28 @@ from lyric_manager import LyricManager
 
 from components import YamlParser
 
-
-def lyric_fetcher_aligner_from_enum_to_class(
-    lyric_fetcher_types,
-    lyric_aligner_type,
-    genius_token,
-    path_to_NUSAutoLyrixAlignOffline):
-
+def create_lyric_fetchers(lyric_fetcher_types, genius_token, path_to_output_dir=None):
     all_lyric_fetchers = []
-    lyric_aligner = None
 
     for type in lyric_fetcher_types:
 
         if type == LyricFetcherType.Disabled:
-            print("Lyric Fetcher: Disabled")
+            logging.info("Adding Lyric Fetcher - Disabled")
             lyric_fetcher = LyricFetcherDisabled()
         elif type == LyricFetcherType.LocalFile:
-            print("Lyric Fetcher: Local File(s)")
-            lyric_fetcher = LyricFetcherLocalFile()
+            logging.info("Adding Lyric Fetcher - Local File(s)")
+            lyric_fetcher = LyricFetcherLocalFile(path_to_output_dir)
         elif type == LyricFetcherType.Genius:
-            print("Lyric Fetcher: Genius Database")
-            lyric_fetcher = LyricFetcherGenius(genius_token)
+            logging.info("Adding Lyric Fetcher - Genius Database")
+            lyric_fetcher = LyricFetcherGenius(genius_token, path_to_output_dir)
         
         all_lyric_fetchers.append(lyric_fetcher)
-
     
+    return all_lyric_fetchers
+
+def create_lyric_aligner(lyric_aligner_type, path_to_NUSAutoLyrixAlignOffline, path_to_output_dir=None):
+    lyric_aligner = None
+
     # We construct a temporary path to manage the lyrics aligner temporary output
     lyric_aligner_temp_path = Path.home() / "LyricManager"
 
@@ -65,12 +63,13 @@ def lyric_fetcher_aligner_from_enum_to_class(
         lyric_aligner = LyricAlignerDisabled(lyric_aligner_temp_path)
     elif lyric_aligner_type == LyricAlignerType.NUSAutoLyrixAlignOffline:
         print("Lyric Aligner: Local File(s)")
-        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOffline(lyric_aligner_temp_path, path_to_NUSAutoLyrixAlignOffline)
+        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOffline(lyric_aligner_temp_path, path_to_NUSAutoLyrixAlignOffline, path_to_output_dir)
     elif lyric_aligner_type == LyricAlignerType.NUSAutoLyrixAlignOnline:
         print("Lyric Aligner: Genius Database")
         lyric_aligner = LyricAlignerNUSAutoLyrixAlignOnline(lyric_aligner_temp_path)
 
-    return all_lyric_fetchers, lyric_aligner
+    return lyric_aligner
+
 
 # def _parse_arguments(input_arguments):
 
@@ -143,26 +142,40 @@ if __name__ == '__main__':
     path_to_log = path_to_application / "lyric_manager.log"
     path_to_settings = path_to_application / "settings.yaml"
 
+    format_time_level_message = "%(asctime)s [%(levelname)s] %(message)s" # Original
+    format_level_file_func_message = "[%(levelname)s][%(filename)s - %(funcName)25s() ] %(message)s"
+
     logging.basicConfig(
         level=logging.INFO,
         #level=logging.DEBUG,
-        format="%(asctime)s [%(levelname)s] %(message)s",
+        format=format_level_file_func_message,
         handlers=[
             logging.FileHandler(path_to_log),
             logging.StreamHandler()     # Pass 'sys.stdout' if we'd prefer not to print to std.err
         ]
     )
 
-    logging.info('Lyric Manager v1.2.1')
+    logging.info('Lyric Manager v1.5.0')
 
     yaml_parser = YamlParser()
     parsed_settings = yaml_parser.parse( path_to_settings )
 
-    all_lyric_fetchers, lyric_aligner = lyric_fetcher_aligner_from_enum_to_class(
+    all_lyric_fetchers = create_lyric_fetchers(
         parsed_settings.lyric_fetchers,
-        parsed_settings.lyric_aligner,
         parsed_settings.lyric_fetcher_genius_token,
-        parsed_settings.path_to_NUSAutoLyrixAlignOffline)
+        parsed_settings.file_output_path)
+
+    lyric_aligner = create_lyric_aligner(
+        parsed_settings.lyric_aligner,
+        parsed_settings.path_to_NUSAutoLyrixAlignOffline,
+        parsed_settings.file_output_path
+    )
+
+    # all_lyric_fetchers, lyric_aligner = lyric_fetcher_aligner_from_enum_to_class(
+    #     parsed_settings.lyric_fetchers,
+    #     parsed_settings.lyric_aligner,
+    #     parsed_settings.lyric_fetcher_genius_token,
+    #     parsed_settings.path_to_NUSAutoLyrixAlignOffline)
 
     incoming_parameters = sys.argv[1:]
 
@@ -197,5 +210,7 @@ if __name__ == '__main__':
         recursive,
         keep_files,
         export_readable_json=export_readable_json,
-        use_preexisting_files=use_preexisting_files
-        )
+        use_preexisting_files=use_preexisting_files,
+        file_output_location=parsed_settings.file_output_location,
+        file_output_path=parsed_settings.file_output_path
+    )

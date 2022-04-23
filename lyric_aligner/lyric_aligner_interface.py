@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 import logging
 from collections import namedtuple
+from pathlib import Path
 
 # 3rd Party
 
@@ -12,16 +13,22 @@ WordAndTiming = namedtuple("WordAndTiming", ["word", "time_start", "time_end"])
 
 class LyricAlignerInterface(ABC):
 
-    def __init__(self, file_extension, path_temp_dir):
+    def __init__(self, file_extension, path_temp_dir, path_to_output_dir: Path = None):
         self.file_extension = file_extension
 
         self.path_temp_dir = path_temp_dir
 
         logging.info(f"LyricAligner Temp path: {self.path_temp_dir}")
         self.path_temp_dir.mkdir(parents=True, exist_ok=True)
+        self.path_to_output_dir = path_to_output_dir
 
     def get_corresponding_aligned_lyric_file(self, path_to_audio_file):
-        return path_to_audio_file.with_suffix(self.file_extension)
+        path_to_lyric_aligned_file = path_to_audio_file.with_suffix(self.file_extension)
+
+        if self.path_to_output_dir:
+            path_to_lyric_aligned_file = self.path_to_output_dir / path_to_lyric_aligned_file.name
+
+        return path_to_lyric_aligned_file
 
     # def aligned_lyrics_exists(self, path_to_audio_file):
     #     path_to_aligned_lyric_file = path_to_audio_file.with_suffix(self.file_extension)

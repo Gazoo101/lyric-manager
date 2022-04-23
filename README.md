@@ -7,6 +7,10 @@ Lyric Manager's primary function is support automatic song and lyric aligment. S
 
 to obtain the songs lyrics. Using the song.mp3 file and song.txt lyric file, Lyric Manager will use these files in conjunction with a lyric aligner. For now, Lyric Manager only utilises NUSAutoLyrixAlign and is optimized for its output. However, the framework is supportive of other alignment tools as needed.
 
+# Requirements
+
+- Python 3.7 (due to its reliance on dataclass)
+
 # Input / Output
 
 Lyric Manager uses the following input/output files, for a given `song.mp3`:

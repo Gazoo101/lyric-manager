@@ -1,3 +1,6 @@
+# Hand-crafted additions
+settings.yaml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

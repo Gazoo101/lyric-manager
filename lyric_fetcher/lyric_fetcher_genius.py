@@ -1,18 +1,22 @@
 # Python
 import logging
+from requests.exceptions import Timeout
+from pathlib import Path
 
 # 3rd Party
 import lyricsgenius
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
+from components import AudioLyricAlignTask
 
 # https://pypi.org/project/lyricsgenius/
 
 class LyricFetcherGenius(LyricFetcherInterface):
+    """ Retrieves Lyrics from genius.com via lyricgenius. """
 
-    def __init__(self, token):
-        super().__init__(".genius")
+    def __init__(self, token, path_to_output_dir:Path = None):
+        super().__init__(".genius", path_to_output_dir)
         self.token = token
         self.genius = lyricsgenius.Genius(self.token)
 
@@ -40,31 +44,32 @@ class LyricFetcherGenius(LyricFetcherInterface):
 
         horse = 2
 
-    def fetch_lyrics(self, path_to_song):
+    def fetch_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask):
 
-        path_to_local_copy = path_to_song.with_suffix(self.file_extension)
+        path_to_cached_lyrics = audio_lyric_align_task.path_to_audio_file
 
-        if path_to_local_copy.exists():
-            logging.info(f"Using local copy: {path_to_local_copy}")
+        if self.path_to_output_dir:
+            path_to_cached_lyrics = self.path_to_output_dir / audio_lyric_align_task.path_to_audio_file.name
+
+        path_to_cached_lyrics = path_to_cached_lyrics.with_suffix(self.file_extension)
+
+        if path_to_cached_lyrics.exists():
+            logging.info(f"Using local copy: {path_to_cached_lyrics}")
             
-            with open(path_to_local_copy, 'r') as file:
+            with open(path_to_cached_lyrics, 'r') as file:
                 file_contents = file.read()
             
             return file_contents
 
-        # TODO: Split path_to_song into <name> - <song>
-        
-        filename = path_to_song.stem
-        parts = filename.split(" - ")
-
-        artist = parts[0].strip()
-        song_name = parts[1].strip()
-        
-        genius_artist = self.genius.search_artist(artist, max_songs=1)
-        genius_song = genius_artist.song(song_name)
+        try:
+            genius_artist = self.genius.search_artist(audio_lyric_align_task.artist, max_songs=1)
+            genius_song = genius_artist.song(audio_lyric_align_task.song_name)
+        except Timeout:
+            logging.warn("Timeout error.")
+            return None
 
         # TODO - Figure out what to do if there was no match
-        with open(path_to_local_copy, 'w') as file:
+        with open(path_to_cached_lyrics, 'w') as file:
             file.write(genius_song.lyrics)
 
         return genius_song.lyrics

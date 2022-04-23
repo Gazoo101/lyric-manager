@@ -24,15 +24,24 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
     '''
 
-    def __init__(self, path_temp_dir, path_to_aligner):
+    def __init__(self, path_temp_dir: Path, path_to_aligner: Path, path_to_output_dir: Path = None):
+        """
+
+        Args:
+            path_temp_dir:
+            path_to_aligner:
+            path_to_output_dir: If 'None' output files will be placed next to processed files, otherwise
+                they'll be place in the path specified in this parameter.
+        """
 
         if " " in str(path_temp_dir):
             error = "LyricAlignerNUSAutoLyrixAlignOffline cannot function with a temporary path containing spaces."
             logging.fatal(error)
             raise RuntimeError(error)
 
-        super().__init__(".nusalaoffline", path_temp_dir)
+        super().__init__(".nusalaoffline", path_temp_dir, path_to_output_dir)
         self.path_aligner = path_to_aligner
+        self.path_to_output_dir = path_to_output_dir
 
     def _convert_to_wordandtiming(self, path_to_aligned_lyrics):
 
@@ -60,21 +69,30 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
 
     def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting=True):
-        ''' Copies audio and lyric files to a temporary location in order to then
+        """ TODO: 1-line explanation
+
+        Copies audio and lyric files to a temporary location in order to then
         execute NUSAutoLyrixAlign, create an aligned lyric text and then copy this
         back.
 
         NUSAutoLyrixAlign executes via Singularity, and it would appear it doesn't
         handle spaces in path's well. Therefore we eliminate all spaces in the
         temporary pathing.
-        '''
-        # Check if the saved raw version exists
-        preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
 
-        if use_preexisting and preexisting_aligned_lyric_file.exists():
-            logging.info(f'Found pre-existing NUSAutoLyrixAlign file: {preexisting_aligned_lyric_file}')
-            word_timings = self._convert_to_wordandtiming(preexisting_aligned_lyric_file)
-            return word_timings
+        Args:
+            path_to_audio_file:
+            path_to_lyric_input:
+            use_preexisting: If a pre-existing alignment file is present, this will be re-used.
+        Returns:
+
+        """
+        # Check if the saved raw version exists
+        if use_preexisting:
+            preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
+            if preexisting_aligned_lyric_file.exists():
+                logging.info(f'Found pre-existing NUSAutoLyrixAlign file: {preexisting_aligned_lyric_file}')
+                word_timings = self._convert_to_wordandtiming(preexisting_aligned_lyric_file)
+                return word_timings
 
         if not self.path_aligner:
             logging.info('No path provided to NUSAutoLyrixAlign, skipping alignment.')
