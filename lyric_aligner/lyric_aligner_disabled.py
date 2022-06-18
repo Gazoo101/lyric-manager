@@ -4,7 +4,7 @@ from lyric_aligner import LyricAlignerInterface
 class LyricAlignerDisabled(LyricAlignerInterface):
 
     def __init__(self, path_temp_dir):
-        super().__init__(path_temp_dir)
+        super().__init__(".na", path_temp_dir)
 
     def _convert_to_wordandtiming(self, input):
         return []

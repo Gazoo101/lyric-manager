@@ -98,10 +98,9 @@ class LyricFetcherGenius(LyricFetcherInterface):
             return None
 
         # TODO - Figure out what to do if there was no match
-        with open(path_to_cached_lyrics, 'w') as file:
-            file.write(genius_song.lyrics)
+
+        # Utf-8 required, as some lyrics sneak in awful non-ascii chars which break file-writing.
+        with open(path_to_cached_lyrics, 'w', encoding="utf-8") as file:
+            file.write(genius_song.lyrics)      # If there are UTF-8 chars - non unicode, we're effed'
 
         return genius_song.lyrics
-        
-        # genius_artist = self.genius.search_artist("The Go-Go's", max_songs=1)
-        # genius_song = genius_artist.song("Vacation")

@@ -262,6 +262,10 @@ class LyricManager:
         if file_output_path:
             file_output_path.mkdir(exist_ok=True)
 
+        if path_to_audio.exists() == False:
+            logging.info(f"Path to parse audio '{path_to_audio}' not found. Exiting.")
+            return
+
 
         all_audio_files = self._get_all_audio_files(path_to_audio, recursive)
 

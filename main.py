@@ -8,6 +8,7 @@ import sys
 import logging
 from argparse import ArgumentParser
 from pathlib import Path
+import os
 
 # 3rd Party
 
@@ -76,7 +77,10 @@ def _command_line_arguments():
     '''
 
     parser = ArgumentParser()
-    parser.add_argument('-ap', '--audio_path', type=Path, help="Path to audio files", required=True)
+    
+    # os.path.abspath allows the user to pass either relative or absolute paths. We'll have to convert the string to a
+    # pathlib.Path later though.
+    parser.add_argument('-ap', '--audio_path', type=os.path.abspath, default='.', help="Path to audio files", required=True)
     #parser.add_argument('-r', '--recursive', type=bool, default=False, help="Recursively parse folders")
     parser.add_argument('-lf', '--lyric_fetcher', type=LyricFetcherInterface.Type, choices=list(LyricFetcherInterface.Type),
                         default=LyricFetcherInterface.Type.Off)
@@ -99,8 +103,6 @@ if __name__ == '__main__':
     # .log and .yaml are expected to be in the same folder as the main.py
     path_to_log = path_to_application / "lyric_manager.log"
     path_to_settings = path_to_application / "settings.yaml"
-
-    print("jucy pops")
 
     format_time_level_message = "%(asctime)s [%(levelname)s] %(message)s" # Original
     format_level_file_func_message = "[%(levelname)s][%(filename)s - %(funcName)25s() ] %(message)s"
@@ -154,11 +156,11 @@ if __name__ == '__main__':
     mylm = LyricManager(all_lyric_fetchers, lyric_aligner)
 
     mylm.fetch_and_align_lyrics(
-        Path(parsed_settings['data']['path_to_audio_files_to_process']),
+        parsed_settings['data']['path_to_audio_files_to_process'],
         parsed_settings['data']['recursively_parse_audio_file_path'],
         parsed_settings['data']['keep_fetched_lyric_files'],   # Not currently respected I think...
         export_readable_json=parsed_settings['general']['export_readable_json'],
         use_preexisting_files=parsed_settings['data']['use_preexisting_files'],
         file_output_location=parsed_settings['data']['file_output_location'],
-        file_output_path=Path(parsed_settings['data']['path_to_output_files'])
+        file_output_path=parsed_settings['data']['path_to_output_files']
     )

@@ -7,6 +7,7 @@ from pathlib import Path
 from enum import Enum
 from functools import partial
 from typing import Union
+import sys
 
 # 3rd Party
 
@@ -58,7 +59,6 @@ class YamlParser():
         """
         
         """
-
         if path_to_yaml_file.exists() == False:
             error = "No settings.yaml found."
             logging.warning(error)
@@ -67,16 +67,31 @@ class YamlParser():
         yaml_contents = strictyaml.load(path_to_yaml_file.read_text())
         yaml_contents = yaml_contents.data
 
-        self._rec_parse(yaml_contents)
+        self._apply_parsing_functions_to_dict(yaml_contents)
+
+        # Validate settings.yaml (this should/can partially be done via strictyaml)
+        if yaml_contents['data']['file_output_location'] == FileOutputLocation.SeparateDirectory:
+            if not yaml_contents['data']['path_to_output_files']:
+                logging.error("File output set to 'SeparateDirectory', but no 'path_to_output_files' was provided.")
+                sys.exit(1)
+
+        # Insta-convert some paths - perhaps write a parser for this.
+        yaml_contents['data']['path_to_output_files'] = Path(yaml_contents['data']['path_to_output_files'])
+        yaml_contents['data']['path_to_audio_files_to_process'] = Path(yaml_contents['data']['path_to_audio_files_to_process'])
 
         return yaml_contents
 
-    def _rec_parse(self, yaml_dict:dict):
+    def _apply_parsing_functions_to_dict(self, yaml_dict:dict):
+        """ Recursively traverses a given dict and applies a set of tranformation functions.
+
+        If a key in the provided dict matches a key in self.parsing_funcs, the function (stored as a value) is applied
+        to the value in the given dict. The function output overwrites the value in the given dict.
+        """
         for key, value in yaml_dict.items():
             #print(f"key: {key}")
             
             if isinstance(value, dict):
-                self._rec_parse(value)
+                self._apply_parsing_functions_to_dict(value)
                 continue
 
             if key in self.parsing_funcs:
