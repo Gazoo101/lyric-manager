@@ -6,8 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- Proper path check to NUSAutoLyrixAligner
 
 ### Changed
+- Removed 'None' which turns into a string from settings_example.yaml
 
 ### Removed
 

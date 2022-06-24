@@ -3,7 +3,6 @@ import os
 from pathlib import Path
 import json
 import logging
-from turtle import pos
 from typing import List
 
 # 3rd Party

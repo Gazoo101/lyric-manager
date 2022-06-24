@@ -20,7 +20,7 @@ general:
   lyric_aligner:
 
   # Required, if lyric_aligner=NUSAutoLyrixAlignOffline
-  path_to_NUSAutoLyrixAlignOffline: None
+  path_to_NUSAutoLyrixAlignOffline:
 
   # LyricManager supports two export_readable_json settings:
   #   - False: Few spaces, few line breaks, no tabs. Intended for low disk space consumtion.

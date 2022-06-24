@@ -42,6 +42,9 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         self.path_aligner = path_to_aligner
         self.path_to_output_dir = path_to_output_dir
 
+        if not path_to_aligner:
+            raise Exception("No path to NUSAutoLyrixAlign provided. No alignment can take place.")
+
     def _convert_to_wordandtiming(self, path_to_aligned_lyrics):
 
         # Input looks like this:
