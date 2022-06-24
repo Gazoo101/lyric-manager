@@ -112,12 +112,12 @@ if __name__ == '__main__':
         #level=logging.DEBUG,
         format=format_level_file_func_message,
         handlers=[
-            logging.FileHandler(path_to_log),
+            logging.FileHandler(path_to_log, mode='w'), # w == Overwrite
             logging.StreamHandler()     # Pass 'sys.stdout' if we'd prefer not to print to std.err
         ]
     )
 
-    logging.info('Lyric Manager v1.5.0')
+    logging.info('Lyric Manager v0.5.0')
 
     yaml_parser = YamlParser()
     parsed_settings = yaml_parser.parse( path_to_settings )

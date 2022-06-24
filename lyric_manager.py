@@ -15,6 +15,7 @@ from components import AlignmentLyricsHandler
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
 from components import LyricSanitizer
+from components import LyricValidity
 
 
 class LyricManager:
@@ -254,32 +255,141 @@ class LyricManager:
         return lyric_align_tasks
 
 
-    def _fetch_lyrics(self, lyric_align_tasks: List[AudioLyricAlignTask]):
+    def _fetch_lyrics_v2(self, lyric_align_task: AudioLyricAlignTask):
         """ Retrieves lyrics for all songs provided in the list of tasks, and returns a list of valid lyric tasks. """
-        lyric_align_tasks_valid = []
+        for lyric_fetcher in self.all_lyric_fetchers:
 
-        for ala_task in tqdm.tqdm(lyric_align_tasks, desc="Fetching lyrics"):
+            # Fetcher currently writes previously fetched copies to disk. This should perhaps
+            # be elevated/exposed to this level.
+            lyric_align_task.lyric_text_raw = lyric_fetcher.fetch_lyrics(lyric_align_task)
 
-            for lyric_fetcher in self.all_lyric_fetchers:
+            if lyric_align_task.lyric_text_raw:
+                break
 
-                # Fetcher currently writes previously fetched copies to disk. This should perhaps
-                # be elevated/exposed to this level.
-                ala_task.lyric_text_raw = lyric_fetcher.fetch_lyrics(ala_task)
+        if not lyric_align_task.lyric_text_raw:
+            logging.warning(f"Unable to retrieve lyrics for: {lyric_align_task.path_to_audio_file}")
 
-                if ala_task.lyric_text_raw:
-                    break
+        return lyric_align_task
 
-            if not ala_task.lyric_text_raw:
-                logging.warning(f"Unable to retrieve lyrics for: {ala_task.path_to_audio_file}")
-                continue
 
-            lyric_align_tasks_valid.append(ala_task)
+    # def _fetch_lyrics(self, lyric_align_tasks: List[AudioLyricAlignTask]):
+    #     """ Retrieves lyrics for all songs provided in the list of tasks, and returns a list of valid lyric tasks. """
+    #     lyric_align_tasks_valid = []
 
-        # Debug
-        #self.all_lyric_fetchers[1]._debug_print_all_fetch_results()
+    #     for ala_task in tqdm.tqdm(lyric_align_tasks, desc="Fetching lyrics"):
+
+    #         for lyric_fetcher in self.all_lyric_fetchers:
+
+    #             # Fetcher currently writes previously fetched copies to disk. This should perhaps
+    #             # be elevated/exposed to this level.
+    #             ala_task.lyric_text_raw = lyric_fetcher.fetch_lyrics(ala_task)
+
+    #             if ala_task.lyric_text_raw:
+    #                 break
+
+    #         if not ala_task.lyric_text_raw:
+    #             logging.warning(f"Unable to retrieve lyrics for: {ala_task.path_to_audio_file}")
+    #             continue
+
+    #         lyric_align_tasks_valid.append(ala_task)
+
+    #     # Debug
+    #     #self.all_lyric_fetchers[1]._debug_print_all_fetch_results()
         
-        return lyric_align_tasks_valid
+    #     return lyric_align_tasks_valid
 
+
+    def _sanitize_lyrics(self, lyric_align_task: AudioLyricAlignTask):
+        """ TODO """
+        lyrics = lyric_align_task.lyric_text_raw
+
+        # lyricgenius now returns some garbage-data in the lyrics we must clean up
+        # TODO: Delegate this clean up to the relevant fetcher, i.e. genius should clean genius garbage
+        # other db, should clean other db garbage
+        lyrics = self.lyric_sanitizer.remove_leading_title(lyric_align_task.song_name, lyrics)
+        lyrics = self.lyric_sanitizer.remove_embed_at_end(lyrics)
+
+        # Clears non-lyric content like [verse 1] and empty lines
+        lyrics = self.lyric_sanitizer.remove_non_lyrics(lyrics)
+        lyrics = self.lyric_sanitizer.replace_difficult_characters(lyrics)
+
+        lyric_align_task.lyric_text_sanitized = lyrics
+        
+        return lyric_align_task
+
+    
+    def _align_lyrics(self, lyric_align_task: AudioLyricAlignTask, file_output_path: Path, use_preexisting_files: bool):
+        """ TODO """
+        # Most of this is to make the task of matching timing back to words a lot easier.
+        alignment_lyrics = self.alignment_lyrics_handler.convert_lyrics_raw_to_alignmentlyrics(lyric_align_task.lyric_text_sanitized)
+
+        lyrics_alignment_ready = []
+
+        for lyric in alignment_lyrics:
+            lyrics_alignment_ready.append(lyric.word_alignment)
+
+        # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
+        complete_lyric_string = self._string_list_to_string(lyrics_alignment_ready)
+
+        path_to_alignment_ready_file = lyric_align_task.path_to_audio_file.with_suffix(self.extension_alignment_ready)
+
+        if file_output_path:
+            path_to_alignment_ready_file = file_output_path / path_to_alignment_ready_file.name
+
+        with open(path_to_alignment_ready_file, 'wt') as file:
+            file.write(complete_lyric_string)
+
+        # TODO: Write intermediate lyric file on-disk for aligner tool to use
+        #intermediate_lyric_file = "path"
+
+        # Hard-coded for 'Go-go's vacation' currently
+        time_aligned_lyrics = self.lyric_aligner.align_lyrics(
+            lyric_align_task.path_to_audio_file,
+            path_to_alignment_ready_file,
+            use_preexisting=use_preexisting_files
+        )
+        #time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=True)
+
+        #json_to_write = self._create_lyrics_json(time_aligned_lyrics, alignment_lyrics)
+
+        lyrics_structured_aligned = self._match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
+
+        # recordtype can't be auto-converted to json, so we must turn it into a dict
+        #lyrics_json = self._convert_lyric_recordtype_to_dict(lyrics_structured_aligned)
+        lyric_align_task.lyrics_aligned = self.alignment_lyrics_handler.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
+
+        return lyric_align_task
+
+
+
+    def _write_aligned_lyrics_to_disk(self,
+        lyric_align_task: AudioLyricAlignTask,
+        file_output_path: Path,
+        export_readable_json: bool):
+        """ TODO """
+        
+        path_to_json_lyrics_file = lyric_align_task.path_to_audio_file.with_suffix(".aligned_lyrics")
+
+        if file_output_path:
+            path_to_json_lyrics_file = file_output_path / path_to_json_lyrics_file.name
+
+        # # lyrics = self.lyric_fetcher.fetch_lyrics("The Go-Go's", "Vacation")
+
+        # json_out_fds["debug_meta_lyrics"] = lyrics
+
+        with open(path_to_json_lyrics_file, 'w') as file:
+            if export_readable_json:
+                json.dump(lyric_align_task.lyrics_aligned, file, indent=4)
+            else:
+                json.dump(lyric_align_task.lyrics_aligned, file)
+
+        logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
+
+    def _print_lyric_validity(self, lyric_align_tasks: List[AudioLyricAlignTask]):
+        logging.info("**********************************************************************")
+        logging.info("************************* Lyric Validity *****************************")
+        for task in lyric_align_tasks:
+            logging.info(f"{task.song_name[0:50] : <50} | {task.lyric_validity}")
 
     # TODO: Convert to dataclass and implement method chaining
     def fetch_and_align_lyrics(self,
@@ -317,94 +427,107 @@ class LyricManager:
 
         logging.info(f"Found {len(all_audio_files)} to process.")
 
-        lyric_align_tasks = self._create_audio_lyric_align_tasks_from_paths(all_audio_files)
-
-        # Filter for existing lyric files here
-
-        json_out_fds = {}
+        tasks = self._create_audio_lyric_align_tasks_from_paths(all_audio_files)
 
 
-        
-        # For design purposes we opt to break the loop into per-task loops. Makes the code easier to
-        # follow, as well as making it easier to focus on fixing and debugging all issues pertaining
-        # to a particular functionality.
+
+        # Design commentary:
+        # Tasks are deliberately encapsulated into multiple functionally independent loops, as opposed to undertaking
+        # all activities per-song in one giant loop. Because:
+        #   - The code is easier to maintain - different types of functionality breaks differently.
+        #   - Debugging can be more easily focused on one single failing functionality
+        #   - Further encapsulation is simpler.
+
+        tasks_with_lyrics = []
+        tasks_with_lyrics_valid = []
+        tasks_with_lyrics_polished = []
+        #lyric_align_tasks_aligned = []
 
         with logging_redirect_tqdm():
+            for task in tqdm.tqdm(tasks, desc="Fetching lyrics"):
+                task_with_lyrics = self._fetch_lyrics_v2(task)
+                tasks_with_lyrics.append(task_with_lyrics)
 
-            # AudioLyticAlign == ala
-            lyric_align_tasks_valid = self._fetch_lyrics(lyric_align_tasks)
+            # Temporarily debugging 'Genius' lyric fetcher 
+            self._print_lyric_validity(tasks_with_lyrics)
 
-            for ala_task in tqdm.tqdm(lyric_align_tasks_valid, desc="Sanitizing lyrics", position=1):
-                lyrics = ala_task.lyric_text_raw
+            # For now we only keep (probably) valid lyrics
+            tasks_with_lyrics_valid = [task for task in tasks_with_lyrics if task.lyric_validity == LyricValidity.Valid]
 
-                # lyricgenius now returns some garbage-data in the lyrics we must clean up
-                lyrics = self.lyric_sanitizer.remove_leading_title(ala_task.song_name, lyrics)
-                lyrics = self.lyric_sanitizer.remove_embed_at_end(lyrics)
+            for task in tqdm.tqdm(tasks_with_lyrics_valid, desc="Sanitizing lyrics"):
+                task_with_polished_lyrics = self._sanitize_lyrics(task)
+                tasks_with_lyrics_polished.append(task_with_polished_lyrics)
 
-                # Clears non-lyric content like [verse 1] and empty lines
-                lyrics = self.lyric_sanitizer.remove_non_lyrics(lyrics)
-                lyrics = self.lyric_sanitizer.replace_difficult_characters(lyrics)
+            # Because lyric alignment is fairly time-consuming (~1 minute processing per 1 minute audio), we write the
+            # results to disk in the same loop to ensure nothing is lost in case of unexpected errors.
+            for task in tqdm.tqdm(tasks_with_lyrics_polished, desc="Align lyrics"):
+                lyric_align_task = self._align_lyrics(task, file_output_path, use_preexisting_files)
 
-                ala_task.lyric_text_sanitized = lyrics
+                self._write_aligned_lyrics_to_disk(lyric_align_task, file_output_path, export_readable_json)
 
-            # TODO: Figure out how to skip this part of the code if no aligner is there...
+            
+        end = 2
 
-            for ala_task in tqdm.tqdm(lyric_align_tasks_valid, desc="Align lyrics"):
+        # with logging_redirect_tqdm():
 
-                # Most of this is to make the task of matching timing back to words a lot easier.
-                alignment_lyrics = self.alignment_lyrics_handler.convert_lyrics_raw_to_alignmentlyrics(ala_task.lyric_text_sanitized)
+        #     # TODO: Figure out how to skip this part of the code if no aligner is there...
 
-                lyrics_alignment_ready = []
+        #     for task in tqdm.tqdm(lyric_align_tasks_valid, desc="Align lyrics"):
 
-                for lyric in alignment_lyrics:
-                    lyrics_alignment_ready.append(lyric.word_alignment)
+        #         # Most of this is to make the task of matching timing back to words a lot easier.
+        #         alignment_lyrics = self.alignment_lyrics_handler.convert_lyrics_raw_to_alignmentlyrics(task.lyric_text_sanitized)
 
-                # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
-                complete_lyric_string = self._string_list_to_string(lyrics_alignment_ready)
+        #         lyrics_alignment_ready = []
 
-                path_to_alignment_ready_file = ala_task.path_to_audio_file.with_suffix(self.extension_alignment_ready)
+        #         for lyric in alignment_lyrics:
+        #             lyrics_alignment_ready.append(lyric.word_alignment)
 
-                if file_output_path:
-                    path_to_alignment_ready_file = file_output_path / path_to_alignment_ready_file.name
+        #         # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
+        #         complete_lyric_string = self._string_list_to_string(lyrics_alignment_ready)
 
-                with open(path_to_alignment_ready_file, 'wt') as file:
-                    file.write(complete_lyric_string)
+        #         path_to_alignment_ready_file = task.path_to_audio_file.with_suffix(self.extension_alignment_ready)
 
-                # TODO: Write intermediate lyric file on-disk for aligner tool to use
-                #intermediate_lyric_file = "path"
+        #         if file_output_path:
+        #             path_to_alignment_ready_file = file_output_path / path_to_alignment_ready_file.name
 
-                # Hard-coded for 'Go-go's vacation' currently
-                time_aligned_lyrics = self.lyric_aligner.align_lyrics(
-                    ala_task.path_to_audio_file,
-                    path_to_alignment_ready_file,
-                    use_preexisting=use_preexisting_files
-                )
-                #time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=True)
+        #         with open(path_to_alignment_ready_file, 'wt') as file:
+        #             file.write(complete_lyric_string)
 
-                #json_to_write = self._create_lyrics_json(time_aligned_lyrics, alignment_lyrics)
+        #         # TODO: Write intermediate lyric file on-disk for aligner tool to use
+        #         #intermediate_lyric_file = "path"
 
-                lyrics_structured_aligned = self._match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
+        #         # Hard-coded for 'Go-go's vacation' currently
+        #         time_aligned_lyrics = self.lyric_aligner.align_lyrics(
+        #             task.path_to_audio_file,
+        #             path_to_alignment_ready_file,
+        #             use_preexisting=use_preexisting_files
+        #         )
+        #         #time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=True)
 
-                # recordtype can't be auto-converted to json, so we must turn it into a dict
-                #lyrics_json = self._convert_lyric_recordtype_to_dict(lyrics_structured_aligned)
-                json_to_write = self.alignment_lyrics_handler.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
+        #         #json_to_write = self._create_lyrics_json(time_aligned_lyrics, alignment_lyrics)
 
-                path_to_json_lyrics_file = ala_task.path_to_audio_file.with_suffix(".aligned_lyrics")
+        #         lyrics_structured_aligned = self._match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
 
-                if file_output_path:
-                    path_to_json_lyrics_file = file_output_path / path_to_json_lyrics_file.name
+        #         # recordtype can't be auto-converted to json, so we must turn it into a dict
+        #         #lyrics_json = self._convert_lyric_recordtype_to_dict(lyrics_structured_aligned)
+        #         json_to_write = self.alignment_lyrics_handler.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
 
-                # # horsie2 = 2
+        #         path_to_json_lyrics_file = task.path_to_audio_file.with_suffix(".aligned_lyrics")
 
-                # # lyrics = self.lyric_fetcher.fetch_lyrics("The Go-Go's", "Vacation")
+        #         if file_output_path:
+        #             path_to_json_lyrics_file = file_output_path / path_to_json_lyrics_file.name
 
-                # json_out_fds["debug_meta_lyrics"] = lyrics
+        #         # # horsie2 = 2
 
-                with open(path_to_json_lyrics_file, 'w') as file:
-                    if export_readable_json:
-                        json.dump(json_to_write, file, indent=4)
-                    else:
-                        json.dump(json_to_write, file)
+        #         # # lyrics = self.lyric_fetcher.fetch_lyrics("The Go-Go's", "Vacation")
 
-                logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
+        #         # json_out_fds["debug_meta_lyrics"] = lyrics
+
+        #         with open(path_to_json_lyrics_file, 'w') as file:
+        #             if export_readable_json:
+        #                 json.dump(json_to_write, file, indent=4)
+        #             else:
+        #                 json.dump(json_to_write, file)
+
+        #         logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 

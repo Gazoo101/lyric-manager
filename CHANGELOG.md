@@ -5,6 +5,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+
+### Changed
+
+### Removed
+
+## [0.5.0] - 2022-06-24
+### Added
+- Separate LyricState Enum
+
+### Changed
+- Refactored LyricManager - Functionally separate tasks are now much more encapsulated
+- Attached lyric validity to AudioLyricAlignTask
+- main.py version correlates with CHANGELOG
+- Cleaned up lost of vestigial code
+
+### Removed
+
 
 ## [0.0.5] - 2022-06-22
 ### Added
@@ -16,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All Enums are now pure Python Enums
 - Partial re-factor to 
 - requirements.txt now includes jsons
+- Suppressed text output from lyricsgenius to not break tqdm progress-bar
 
 ### Removed
 - StringEnum

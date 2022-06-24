@@ -21,16 +21,7 @@ import jsons
 from .lyric_fetcher_interface import LyricFetcherInterface
 from components import AudioLyricAlignTask
 from components import text_simplifier
-
-class LyricState(Enum):
-    Valid = auto()
-    NotFound = auto()
-    Invalid = auto()  # Returned HTML or other unintelligable stuff (like Scarface script?!)
-    Invalid_NoLyricStringFound = auto()
-    Invalid_LyricStringFoundTooFarIntoString = auto()
-    Invalid_TooManyChars = auto()
-    Invalid_TooFewChars = auto()
-    WrongSong = auto()    # Returned lyrics, but not the ones matching the song
+from components import LyricValidity
 
 # FetchErrors is a @dataclass so we can construct defaultdict(FetchErrors) which can be serialized using jsons.
 # defaultdict(defaultdict(Enum)) cannot be serialized in using jsons.
@@ -63,28 +54,8 @@ class LyricFetcherGenius(LyricFetcherInterface):
         self.random_wait_lower = 3.0 # seconds
         self.random_wait_upper = 10.0 # seconds
 
-        self.fetch_results = {}
-
         self.path_to_fetch_history = Path("fetch_history.genius")
         self.fetch_history = self._init_fetch_history()
-
-        # if self.path_to_fetch_record.exists():
-        #     self.fetch_history = self._load_fetch_history(self.path_to_fetch_record)
-
-        # self.fetch_record["my songz"].time_out += 1
-
-        # horsmallorse = 2
-
-        # self._write_to_disk(self.path_to_fetch_record, self.fetch_record)
-
-        # reloaded = self._load_fetch_record(self.path_to_fetch_record)
-
-        # reloaded["other sang"].not_found += 1
-        # reloaded["my songz"].time_out += 1
-
-        # horfdssmallorse = 2
-
-        # #if self.path_to_fetch_record.exists():
 
 
     def _init_fetch_history(self):
@@ -96,48 +67,11 @@ class LyricFetcherGenius(LyricFetcherInterface):
 
         return fetch_history
 
+
     def _save_fetch_history(self):
         fetch_history_serialized = jsons.dumps(self.fetch_history)
         self.path_to_fetch_history.write_text(fetch_history_serialized)
 
-    
-    def _debug_print_all_fetch_results(self):
-        for song_name, result in self.fetch_results.items():
-            logging.info(f"{song_name : <40} | {result.name}")
-
-
-    # def _write_to_disk(self, path: Path, data):
-    #     fully_serializable = jsons.dumps(data)
-    #     path.write_text(fully_serializable)
-
-    # def _load_from_disk(self, path: Path):
-    #     file_content = path.read_text()
-    #     return jsons.loads(file_content, Dict[str, Dict[LyricState, int]])
-
-
-    def _working_demo(self):
-
-        # genius = lyricsgenius.Genius(self.genius_token)
-
-        #artist = genius.search_artist("Andy Shauf", max_songs=3, sort="title")
-
-        input = "The Go-Go's - Vacation"
-
-        #artist = genius.search_artist("The Go-Go's", max_songs=3, sort="title")
-        artist = self.genius.search_artist("The Go-Go's", max_songs=1)
-        vacay_song = artist.song("Vacation")
-
-        #vacay_song.lyrics
-
-        with open("Output.txt", "w") as text_file:
-            print(vacay_song.lyrics, file=text_file)
-
-        # Lyric parsing ideas - get rid of commas, as they just make clutter
-        # Convert abbreviations to their full spelling? e.g. "Nothin'" => "Nothing"
-
-        print(artist.songs)
-
-        horse = 2
 
     def _text_simplify(self, text: str):
         text = text.replace("’", "'")
@@ -158,9 +92,9 @@ class LyricFetcherGenius(LyricFetcherInterface):
 
         # Error cases, which - until now, appear to never trigger.
         if index_of_first_instance_of_lyric == -1:
-            return LyricState.Invalid_NoLyricStringFound
+            return LyricValidity.Invalid_NoLyricStringFound
         elif index_of_first_instance_of_lyric > len(audio_lyric_align_task.song_name) + 100:
-            return LyricState.Invalid_LyricStringFoundTooFarIntoString
+            return LyricValidity.Invalid_LyricStringFoundTooFarIntoString
 
         # Heuristically determined invalid lengths
         number_of_chars_in_lyrics = len(lyrics)
@@ -168,10 +102,10 @@ class LyricFetcherGenius(LyricFetcherInterface):
         number_of_chars_too_few = 70 # Like Herbie Hancock - Rock It :/ should update this
 
         if number_of_chars_in_lyrics >= number_of_chars_too_many:
-            return LyricState.Invalid_TooManyChars
+            return LyricValidity.Invalid_TooManyChars
 
         if number_of_chars_in_lyrics <= number_of_chars_too_few:
-            return LyricState.Invalid_TooFewChars
+            return LyricValidity.Invalid_TooFewChars
         
 
         # _____________________________________
@@ -190,7 +124,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
 
         # If the name is a perfect match - we're fairly certain the lyrics are good.
         if result:
-            return LyricState.Valid
+            return LyricValidity.Valid
 
         # Song name variation can be pretty high - So this code attempts to catch some of it, by seeing if at least
         # 50% of the song title appears to match
@@ -199,10 +133,10 @@ class LyricFetcherGenius(LyricFetcherInterface):
         # For song name: Blue Monday ('88)
         # But lyric source: Blue Monday '88 (7" Version)
         if text_simplifier.percentage_song_name_match(song_name, lyrics_beginning) > 0.5:
-            return LyricState.Valid
+            return LyricValidity.Valid
 
         # If we get here, the lyrics are possibly ok, but they're likely for a different song...
-        return LyricState.WrongSong
+        return LyricValidity.WrongSong
 
 
     def fetch_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask):
@@ -222,11 +156,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
             with open(path_to_cached_lyrics, 'r', encoding='utf-8') as file:
                 file_contents = file.read()
 
-            result = self._validate_lyrics(audio_lyric_align_task, file_contents)
-
-            self.fetch_results[audio_lyric_align_task.song_name] = result
-
-            #self._debug_print_all_fetch_results()
+            audio_lyric_align_task.lyric_validity = self._validate_lyrics(audio_lyric_align_task, file_contents)
             
             return file_contents
 
