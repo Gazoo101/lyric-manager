@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 import json
 import logging
+from turtle import pos
+from typing import List
 
 # 3rd Party
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -235,6 +237,50 @@ class LyricManager:
         return ' '.join(string.split())
 
 
+    def _create_audio_lyric_align_tasks_from_paths(self, paths_to_audio_files: List):
+        """ Turns a list of paths to audio files into AudioLyricAlignTask objects """
+        lyric_align_tasks = []
+
+        for path_to_audio_file in paths_to_audio_files:
+            try:
+                # If the audio filename cannot be properly decomposed into Artist - Song, the constructor will throw
+                task = AudioLyricAlignTask(path_to_audio_file)
+                lyric_align_tasks.append(task)
+            except IndexError:
+                logging.warning(f"The audio filename: '{path_to_audio_file}' was malformed.")
+            except:
+                logging.exception(f"Unable to convert '{path_to_audio_file}' into Task object.")
+
+        return lyric_align_tasks
+
+
+    def _fetch_lyrics(self, lyric_align_tasks: List[AudioLyricAlignTask]):
+        """ Retrieves lyrics for all songs provided in the list of tasks, and returns a list of valid lyric tasks. """
+        lyric_align_tasks_valid = []
+
+        for ala_task in tqdm.tqdm(lyric_align_tasks, desc="Fetching lyrics"):
+
+            for lyric_fetcher in self.all_lyric_fetchers:
+
+                # Fetcher currently writes previously fetched copies to disk. This should perhaps
+                # be elevated/exposed to this level.
+                ala_task.lyric_text_raw = lyric_fetcher.fetch_lyrics(ala_task)
+
+                if ala_task.lyric_text_raw:
+                    break
+
+            if not ala_task.lyric_text_raw:
+                logging.warning(f"Unable to retrieve lyrics for: {ala_task.path_to_audio_file}")
+                continue
+
+            lyric_align_tasks_valid.append(ala_task)
+
+        # Debug
+        #self.all_lyric_fetchers[1]._debug_print_all_fetch_results()
+        
+        return lyric_align_tasks_valid
+
+
     # TODO: Convert to dataclass and implement method chaining
     def fetch_and_align_lyrics(self,
             path_to_audio:Path, 
@@ -271,16 +317,11 @@ class LyricManager:
 
         logging.info(f"Found {len(all_audio_files)} to process.")
 
+        lyric_align_tasks = self._create_audio_lyric_align_tasks_from_paths(all_audio_files)
+
         # Filter for existing lyric files here
 
-        # Blur generally ok - skip first
-        #audio_files = audio_files[1:]
-
         json_out_fds = {}
-
-        # To pull out and test one song
-        #audio_files = [audio_files[5]]
-
 
 
         
@@ -290,39 +331,10 @@ class LyricManager:
 
         with logging_redirect_tqdm():
 
-            # AudioLyricAlignTask() will throw exceptions in the case of unexpected filenames
-            lyric_align_tasks = []
-            for path_to_audio_file in all_audio_files:
-                try:
-                    task = AudioLyricAlignTask(path_to_audio_file)
-                    lyric_align_tasks.append(task)
-                except IndexError:
-                    logging.warning(f"The audio filename: '{path_to_audio_file}' was malformed.")
-                except:
-                    logging.exception(f"Unable to convert '{path_to_audio_file}' into Task object.")
-                    
-
             # AudioLyticAlign == ala
-            lyric_align_tasks_valid = []
+            lyric_align_tasks_valid = self._fetch_lyrics(lyric_align_tasks)
 
-            for ala_task in tqdm.tqdm(lyric_align_tasks, desc="Fetching lyrics"):
-
-                for lyric_fetcher in self.all_lyric_fetchers:
-
-                    # Fetcher currently writes previously fetched copies to disk. This should perhaps
-                    # be elevated/exposed to this level.
-                    ala_task.lyric_text_raw = lyric_fetcher.fetch_lyrics(ala_task)
-
-                    if ala_task.lyric_text_raw:
-                        break
-
-                if not ala_task.lyric_text_raw:
-                    logging.warning(f"Unable to retrieve lyrics for: {ala_task.path_to_audio_file}")
-                    continue
-
-                lyric_align_tasks_valid.append(ala_task)
-
-            for ala_task in tqdm.tqdm(lyric_align_tasks_valid, desc="Sanitizing lyrics"):
+            for ala_task in tqdm.tqdm(lyric_align_tasks_valid, desc="Sanitizing lyrics", position=1):
                 lyrics = ala_task.lyric_text_raw
 
                 # lyricgenius now returns some garbage-data in the lyrics we must clean up
@@ -334,6 +346,8 @@ class LyricManager:
                 lyrics = self.lyric_sanitizer.replace_difficult_characters(lyrics)
 
                 ala_task.lyric_text_sanitized = lyrics
+
+            # TODO: Figure out how to skip this part of the code if no aligner is there...
 
             for ala_task in tqdm.tqdm(lyric_align_tasks_valid, desc="Align lyrics"):
 

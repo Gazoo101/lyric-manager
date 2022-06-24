@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2022-06-22
+### Added
+- Lyric validation in Genius fetcher. First draft, likely has numerous false positives and false negatives.
+
+### Changed
+- Cleaned up yaml parser
+- Fixed various breaking changes in the code due to base class changes.
+- All Enums are now pure Python Enums
+- Partial re-factor to 
+- requirements.txt now includes jsons
+
+### Removed
+- StringEnum
+
 ## [0.0.4] - 2022-06-19
 ### Added
 - A CHANGELOG.md

@@ -10,7 +10,6 @@ from datetime import datetime
 # 1st Party
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
-from components import StringEnum
 import components
 #from components import FileOps
 #from components import FileOperations

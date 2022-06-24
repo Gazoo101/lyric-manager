@@ -9,5 +9,5 @@ class LyricAlignerDisabled(LyricAlignerInterface):
     def _convert_to_wordandtiming(self, input):
         return []
 
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input):
+    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting):
         return ""

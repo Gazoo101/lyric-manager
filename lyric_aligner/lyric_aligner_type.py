@@ -1,6 +1,6 @@
-from components import StringEnum
+from enum import Enum, auto
 
-class LyricAlignerType(StringEnum):
-    Disabled = "Disabled"
-    NUSAutoLyrixAlignOnline = "NUSAutoLyrixAlignOnline"
-    NUSAutoLyrixAlignOffline = "NUSAutoLyrixAlignOffline"
+class LyricAlignerType(Enum):
+    Disabled = auto()
+    NUSAutoLyrixAlignOnline = auto()
+    NUSAutoLyrixAlignOffline = auto()

@@ -41,7 +41,7 @@ class LyricAlignerInterface(ABC):
         return path_to_aligned_lyric_file
 
     @abstractmethod
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input):
+    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting):
         raise NotImplementedError
 
     @abstractmethod

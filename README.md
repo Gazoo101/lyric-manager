@@ -9,7 +9,7 @@ to obtain the songs lyrics. Using the song.mp3 file and song.txt lyric file, Lyr
 
 # Requirements
 
-- Python 3.7 (due to its reliance on dataclass)
+- Python 3.7+ (due to its reliance on dataclass)
 
 # Input / Output
 

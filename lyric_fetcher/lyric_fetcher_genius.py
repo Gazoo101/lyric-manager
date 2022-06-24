@@ -1,22 +1,54 @@
 # Python
+import os
 import logging
+import contextlib
+import time
+import random
+import re
+from dataclasses import dataclass
 from requests.exceptions import Timeout
 from pathlib import Path
 from datetime import datetime
-import time
-import random
+from enum import Enum, auto
+from typing import Dict, DefaultDict
+from collections import defaultdict
 
 # 3rd Party
 import lyricsgenius
+import jsons
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
 from components import AudioLyricAlignTask
+from components import text_simplifier
 
-# https://pypi.org/project/lyricsgenius/
+class LyricState(Enum):
+    Valid = auto()
+    NotFound = auto()
+    Invalid = auto()  # Returned HTML or other unintelligable stuff (like Scarface script?!)
+    Invalid_NoLyricStringFound = auto()
+    Invalid_LyricStringFoundTooFarIntoString = auto()
+    Invalid_TooManyChars = auto()
+    Invalid_TooFewChars = auto()
+    WrongSong = auto()    # Returned lyrics, but not the ones matching the song
+
+# FetchErrors is a @dataclass so we can construct defaultdict(FetchErrors) which can be serialized using jsons.
+# defaultdict(defaultdict(Enum)) cannot be serialized in using jsons.
+@dataclass
+class FetchErrors():
+    time_out : int = 0
+    not_found : int = 0
+
+    def get_total_error_amount(self):
+        return self.time_out + self.not_found
+
 
 class LyricFetcherGenius(LyricFetcherInterface):
-    """ Retrieves Lyrics from genius.com via lyricgenius. """
+    """ Retrieves Lyrics from genius.com via lyricgenius.
+    
+    Uses https://pypi.org/project/lyricsgenius/
+    
+    """
 
     def __init__(self, token, path_to_output_dir:Path = None):
         super().__init__(".genius", path_to_output_dir)
@@ -25,10 +57,63 @@ class LyricFetcherGenius(LyricFetcherInterface):
 
         # In an effort to not overload Genius' servers, we insert some self-rate limiting
         self.rate_limit = True
+        self.rate_limit = False
         self.timestamp_recent_fetch = datetime.now()
 
         self.random_wait_lower = 3.0 # seconds
         self.random_wait_upper = 10.0 # seconds
+
+        self.fetch_results = {}
+
+        self.path_to_fetch_history = Path("fetch_history.genius")
+        self.fetch_history = self._init_fetch_history()
+
+        # if self.path_to_fetch_record.exists():
+        #     self.fetch_history = self._load_fetch_history(self.path_to_fetch_record)
+
+        # self.fetch_record["my songz"].time_out += 1
+
+        # horsmallorse = 2
+
+        # self._write_to_disk(self.path_to_fetch_record, self.fetch_record)
+
+        # reloaded = self._load_fetch_record(self.path_to_fetch_record)
+
+        # reloaded["other sang"].not_found += 1
+        # reloaded["my songz"].time_out += 1
+
+        # horfdssmallorse = 2
+
+        # #if self.path_to_fetch_record.exists():
+
+
+    def _init_fetch_history(self):
+        fetch_history = defaultdict(FetchErrors)
+
+        if self.path_to_fetch_history.exists():
+            file_content = self.path_to_fetch_history.read_text()
+            fetch_history = jsons.loads(file_content, DefaultDict[str, FetchErrors])
+
+        return fetch_history
+
+    def _save_fetch_history(self):
+        fetch_history_serialized = jsons.dumps(self.fetch_history)
+        self.path_to_fetch_history.write_text(fetch_history_serialized)
+
+    
+    def _debug_print_all_fetch_results(self):
+        for song_name, result in self.fetch_results.items():
+            logging.info(f"{song_name : <40} | {result.name}")
+
+
+    # def _write_to_disk(self, path: Path, data):
+    #     fully_serializable = jsons.dumps(data)
+    #     path.write_text(fully_serializable)
+
+    # def _load_from_disk(self, path: Path):
+    #     file_content = path.read_text()
+    #     return jsons.loads(file_content, Dict[str, Dict[LyricState, int]])
+
 
     def _working_demo(self):
 
@@ -54,6 +139,72 @@ class LyricFetcherGenius(LyricFetcherInterface):
 
         horse = 2
 
+    def _text_simplify(self, text: str):
+        text = text.replace("’", "'")
+        text = text.replace("D.J.", "dj")
+        text = text.replace('(', '').replace(')', '')
+        return text
+
+
+    def _validate_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask, lyrics: str):
+        """ Attempts to determine whether the lyrics found are legit or not. """
+
+        # _____________________________________
+        # _______ Step 1: Early Return
+
+        # Valid lyrics tend to always start with some combination of "<Song Title> Lyrics", so our validation will
+        # be guided by this fact.
+        index_of_first_instance_of_lyric = lyrics.find("Lyrics")
+
+        # Error cases, which - until now, appear to never trigger.
+        if index_of_first_instance_of_lyric == -1:
+            return LyricState.Invalid_NoLyricStringFound
+        elif index_of_first_instance_of_lyric > len(audio_lyric_align_task.song_name) + 100:
+            return LyricState.Invalid_LyricStringFoundTooFarIntoString
+
+        # Heuristically determined invalid lengths
+        number_of_chars_in_lyrics = len(lyrics)
+        number_of_chars_too_many = 13000
+        number_of_chars_too_few = 70 # Like Herbie Hancock - Rock It :/ should update this
+
+        if number_of_chars_in_lyrics >= number_of_chars_too_many:
+            return LyricState.Invalid_TooManyChars
+
+        if number_of_chars_in_lyrics <= number_of_chars_too_few:
+            return LyricState.Invalid_TooFewChars
+        
+
+        # _____________________________________
+        # _______ Step 2: Lyrics *seem* ok. Do they match the song?
+
+        lyrics_beginning = lyrics[0:index_of_first_instance_of_lyric]
+
+        # Hard-coded simplifications to make life easier
+        lyrics_beginning = self._text_simplify(lyrics_beginning)
+        song_name = self._text_simplify(audio_lyric_align_task.song_name)
+    
+        # Match case-insensitive song-name with zero or multiple spaces
+        reg_exp_start = f"(?i){song_name}\s*"
+
+        result = re.match(reg_exp_start, lyrics_beginning)
+
+        # If the name is a perfect match - we're fairly certain the lyrics are good.
+        if result:
+            return LyricState.Valid
+
+        # Song name variation can be pretty high - So this code attempts to catch some of it, by seeing if at least
+        # 50% of the song title appears to match
+
+        # Example
+        # For song name: Blue Monday ('88)
+        # But lyric source: Blue Monday '88 (7" Version)
+        if text_simplifier.percentage_song_name_match(song_name, lyrics_beginning) > 0.5:
+            return LyricState.Valid
+
+        # If we get here, the lyrics are possibly ok, but they're likely for a different song...
+        return LyricState.WrongSong
+
+
     def fetch_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask):
 
         ####
@@ -68,13 +219,22 @@ class LyricFetcherGenius(LyricFetcherInterface):
         if path_to_cached_lyrics.exists():
             logging.info(f"Using local copy: {path_to_cached_lyrics}")
             
-            with open(path_to_cached_lyrics, 'r') as file:
+            with open(path_to_cached_lyrics, 'r', encoding='utf-8') as file:
                 file_contents = file.read()
+
+            result = self._validate_lyrics(audio_lyric_align_task, file_contents)
+
+            self.fetch_results[audio_lyric_align_task.song_name] = result
+
+            #self._debug_print_all_fetch_results()
             
             return file_contents
 
         ####
         # Fetch fresh version
+        if self.fetch_history[audio_lyric_align_task.filename].not_found >= 4:
+            return None
+
         if self.rate_limit:
             time_since_last_fetch = datetime.now() - self.timestamp_recent_fetch
             if time_since_last_fetch.total_seconds() < self.random_wait_lower:
@@ -85,19 +245,23 @@ class LyricFetcherGenius(LyricFetcherInterface):
             self.timestamp_recent_fetch = datetime.now()
 
         try:
-            genius_song = self.genius.search_song(audio_lyric_align_task.song_name, audio_lyric_align_task.artist)
+            # Silence geniuslibrary - breaks output.
+            with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+                genius_song = self.genius.search_song(audio_lyric_align_task.song_name, audio_lyric_align_task.artist)
 
             # genius_artist = self.genius.search_artist(audio_lyric_align_task.artist, max_songs=1)
             # genius_song = genius_artist.song(audio_lyric_align_task.song_name)
         except Timeout:
             logging.warning("Timeout error.")
+            self.fetch_history[audio_lyric_align_task.filename].time_out += 1
+            self._save_fetch_history()
             return None
 
         if not genius_song:
             logging.warning(f"Song '{audio_lyric_align_task.song_name}' was not found.")
+            self.fetch_history[audio_lyric_align_task.filename].not_found += 1
+            self._save_fetch_history()
             return None
-
-        # TODO - Figure out what to do if there was no match
 
         # Utf-8 required, as some lyrics sneak in awful non-ascii chars which break file-writing.
         with open(path_to_cached_lyrics, 'w', encoding="utf-8") as file:

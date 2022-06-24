@@ -13,6 +13,8 @@ from pathlib import Path
 @dataclass
 class AudioLyricAlignTask:
     path_to_audio_file: Path
+    # filename without extension
+    filename: str = ""                      # Contained in path_to_audio_file, mostly for convenience / debugging
     artist: float = field(init=False)
     song_name: float = field(init=False)
     lyric_text_raw: str = ""                # Local .txt, Genius DB, or other source
@@ -25,6 +27,8 @@ class AudioLyricAlignTask:
         # For now we assume songs always come in this filename form: <artist> - <song name>
         # We split at " - ", as opposed to "-", because hyphens can often appear in both the artist or song name.
         filename_parts = self.path_to_audio_file.stem.split(" - ") # stem, to get file without extension
+
+        self.filename = self.path_to_audio_file.stem
 
         self.artist = filename_parts[0].strip()
         self.song_name = filename_parts[1].strip()

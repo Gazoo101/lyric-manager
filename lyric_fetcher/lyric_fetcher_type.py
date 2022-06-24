@@ -1,7 +1,7 @@
-from components import StringEnum
+from enum import Enum, auto
 
-class LyricFetcherType(StringEnum):
-    Disabled = "Disabled"
-    LocalFile = "LocalFile"
-    Genius = "Genius"
-    LyricsDotOvh = "LyricsDotOvh"
+class LyricFetcherType(Enum):
+    Disabled = auto()
+    LocalFile = auto()
+    Genius = auto()
+    LyricsDotOvh = auto()

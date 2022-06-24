@@ -1,10 +1,10 @@
 # Python
 #from typing import NamedTuple
 import strictyaml
-from collections import namedtuple
 import logging
 from pathlib import Path
 from enum import Enum
+from enum import auto
 from functools import partial
 from typing import Union
 import sys
@@ -12,10 +12,7 @@ import sys
 # 3rd Party
 
 # 1st Party
-from components import StringEnum
 
-#from lyric_aligner import LyricAlignerType
-#from lyric_fetcher import LyricFetcherType
 
 # Intentionally left as a non-explicit import, i.e. NOT 'from lyric_fetcher import LyricFetcherInterface'
 # as this would lead to a circular dependence.
@@ -42,18 +39,19 @@ import lyric_aligner
 #         'use_preexisting_files'
 #     ])
 
-class FileOutputLocation(StringEnum):
-    NextToAudioFile = "NextToAudioFile"
-    SeparateDirectory = "SeparateDirectory"
+class FileOutputLocation(Enum):
+    NextToAudioFile = auto()
+    SeparateDirectory = auto()
 
 class YamlParser():
 
     def __init__(self):
         self.parsing_funcs = {}
 
-        self.parsing_funcs['lyric_fetchers'] = partial(self._parse_to_enum, lyric_fetcher.LyricFetcherType)
-        self.parsing_funcs['lyric_aligner'] = partial(self._parse_to_enum, lyric_aligner.LyricAlignerType)
-        self.parsing_funcs['file_output_location'] = partial(self._parse_to_enum, FileOutputLocation)
+        self.parsing_funcs['lyric_fetchers'] = partial(self._strings_to_enum, lyric_fetcher.LyricFetcherType)
+        self.parsing_funcs['lyric_aligner'] = partial(self._strings_to_enum, lyric_aligner.LyricAlignerType)
+        self.parsing_funcs['file_output_location'] = partial(self._strings_to_enum, FileOutputLocation)
+
 
     def parse(self, path_to_yaml_file:Path):
         """
@@ -98,100 +96,27 @@ class YamlParser():
                 yaml_dict[key] = self.parsing_funcs[key](value)
 
 
-
-
-    # def parse(self, path_to_yaml_file):
-
-    #     if path_to_yaml_file.exists() == False:
-    #         error = "No settings.yaml found."
-    #         logging.warning(error)
-    #         raise RuntimeError(error)
-
-    #     yaml_contents = strictyaml.load(path_to_yaml_file.read_text())
-    #     yaml_contents = yaml_contents.data
-
-    #     # with open(path_to_yaml_file) as file:
-    #     #     yaml_contents = yaml.safe_load(file)
- 
-    #     lyric_fetcher_types = []
-
-    #     for fetcher_type in yaml_contents['lyric_fetchers']:
-    #         lyric_fetcher_types.append(self._parse_string_to_enum(lyric_fetcher.LyricFetcherType, fetcher_type))
-
-    #     if not bool(yaml_contents['lyric_aligner']):
-    #         error = "No lyric_aligned selected in settings.yaml."
-    #         logging.error(error)
-    #         raise RuntimeError(error)
-
-    #     lyric_aligner_type = self._parse_string_to_enum(lyric_aligner.LyricAlignerType, yaml_contents['lyric_aligner'])
-
-    #     file_output_location = self._parse_string_to_enum(FileOutputLocation, yaml_contents['file_output_location'])
-
-    #     path_to_NUSAutoLyrixAlignOffline = None
-    #     if yaml_contents['path_to_NUSAutoLyrixAlignOffline'] != 'None':
-    #         path_to_NUSAutoLyrixAlignOffline = Path(yaml_contents['path_to_NUSAutoLyrixAlignOffline'])
-
-    #     parsed_settings = Settings(
-    #         path_to_audio_files=Path(yaml_contents['path_to_audio_files']),
-    #         recursive_iteration=yaml_contents['recursively_parse_audio_file_path'],
-    #         overwrite_generated_file=yaml_contents['overwrite_existing_generated_files'],
-    #         file_output_location=file_output_location,
-    #         file_output_path=Path(yaml_contents['file_output_path']),
-    #         export_readable_json=yaml_contents['export_readable_json'],
-    #         lyric_fetchers=lyric_fetcher_types,
-    #         lyric_fetcher_genius_token=yaml_contents['lyric_fetcher_genius_token'],
-    #         keep_fetched_lyrics=yaml_contents['keep_fetched_lyric_files'],
-    #         lyric_aligner=lyric_aligner_type,
-    #         path_to_NUSAutoLyrixAlignOffline=path_to_NUSAutoLyrixAlignOffline,
-    #         use_preexisting_files=yaml_contents['use_preexisting_files']
-    #     )
-
-    #     return parsed_settings
-
-
-    def _parse_to_enum(self, string_enum, input_string: Union[list, str]):
-        """ A generic parser which converts a given string into the appropriate StringEnum.
-
+    def _strings_to_enum(self, enum_type, input_string: Union[list, str]):
+        """ Parses a string (or a list of strings) into the provided the provided Enum object type.
+        
         Args:
-            string_enum: An enum object expected to derive from StringEnum.
-            input_string: The string provided in the Settings file.
+            enum_type: The Enum object type to convert a string or list of strings into.
+            input_string: String or list of strings to convert.
         Returns:
-            The specific Enum object that the given string matches in the given derived
-            StringEnum object.
+            An Enum object or list of Enum objects depending on the input.
         """
-        # enum_options = string_enum.as_dict()
-        # name_of_enum = string_enum.__name__
-
         if isinstance(input_string, list):
             return_list = []
 
             for elem in input_string:
-                return_list.append(self._parse_string_to_enum(string_enum, elem))
+                return_list.append(self._strings_to_enum(enum_type, elem))
 
             return return_list
 
-        return self._parse_string_to_enum(string_enum, input_string)
+        try:
+            enum_object = enum_type[input_string]
+        except KeyError as err:
+            logging.exception(f"The provided setting type name '{input_string}' was unknown. Note that text-case is sensitive!")
+            sys.exit(1)
 
-
-    def _parse_string_to_enum(self, string_enum, input_string):
-        """ A generic parser which converts a given string into the appropriate StringEnum.
-
-        Args:
-            string_enum: An enum object expected to derive from StringEnum.
-            input_string: The string provided in the Settings file.
-        Returns:
-            The specific Enum object that the given string matches in the given derived
-            StringEnum object.
-        """
-        enum_options = string_enum.as_dict()
-        name_of_enum = string_enum.__name__
-
-        if (input_string.lower() not in enum_options.keys()):
-            # We convert .keys() into a list() for prettier print output
-            error_message = f'Unable to parse: "{input_string}" into {name_of_enum} enum. Possible options: {list(enum_options.keys())}'
-            logging.warning(error_message)
-            raise Exception(error_message)
-            # self.logger.print_and_log_error(error_message)
-            # raise StringToEnumParsingError(error_message)
-
-        return enum_options[input_string.lower()]
+        return enum_object
