@@ -77,6 +77,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
         text = text.replace("’", "'")
         text = text.replace("D.J.", "dj")
         text = text.replace('(', '').replace(')', '')
+        text = text.replace('+', '\+')
         return text
 
 
@@ -162,7 +163,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
 
         ####
         # Fetch fresh version
-        if self.fetch_history[audio_lyric_align_task.filename].not_found >= 4:
+        if self.fetch_history[audio_lyric_align_task.filename].not_found >= 1:
             return None
 
         if self.rate_limit:
