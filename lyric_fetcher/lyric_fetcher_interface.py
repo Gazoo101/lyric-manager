@@ -11,5 +11,3 @@ class LyricFetcherInterface(ABC):
     @abstractmethod
     def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask):
         raise NotImplementedError
-
-    #def _get_

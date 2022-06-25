@@ -254,8 +254,8 @@ class LyricManager:
         return lyric_align_tasks
 
 
-    def _fetch_lyrics_v2(self, lyric_align_task: AudioLyricAlignTask):
-        """ Retrieves lyrics for all songs provided in the list of tasks, and returns a list of valid lyric tasks. """
+    def _fetch_lyrics(self, lyric_align_task: AudioLyricAlignTask):
+        """ For a given AudioLyricAlignTask, fetches lyrics using available sources in self.all_lyric_fetchers. """
         for lyric_fetcher in self.all_lyric_fetchers:
 
             # Fetcher currently writes previously fetched copies to disk. This should perhaps
@@ -271,35 +271,11 @@ class LyricManager:
         return lyric_align_task
 
 
-    # def _fetch_lyrics(self, lyric_align_tasks: List[AudioLyricAlignTask]):
-    #     """ Retrieves lyrics for all songs provided in the list of tasks, and returns a list of valid lyric tasks. """
-    #     lyric_align_tasks_valid = []
-
-    #     for ala_task in tqdm.tqdm(lyric_align_tasks, desc="Fetching lyrics"):
-
-    #         for lyric_fetcher in self.all_lyric_fetchers:
-
-    #             # Fetcher currently writes previously fetched copies to disk. This should perhaps
-    #             # be elevated/exposed to this level.
-    #             ala_task.lyric_text_raw = lyric_fetcher.fetch_lyrics(ala_task)
-
-    #             if ala_task.lyric_text_raw:
-    #                 break
-
-    #         if not ala_task.lyric_text_raw:
-    #             logging.warning(f"Unable to retrieve lyrics for: {ala_task.path_to_audio_file}")
-    #             continue
-
-    #         lyric_align_tasks_valid.append(ala_task)
-
-    #     # Debug
-    #     #self.all_lyric_fetchers[1]._debug_print_all_fetch_results()
-        
-    #     return lyric_align_tasks_valid
-
-
     def _sanitize_lyrics(self, lyric_align_task: AudioLyricAlignTask):
-        """ TODO """
+        """ Sanitizes lyric text in a AudioLyricAlignTask by removing gibberish and replacing tricky characters.
+        
+        Currently somewhat hard-coded fix issues with lyrics stemming from a specific source.
+        """
         lyrics = lyric_align_task.lyric_text_raw
 
         # lyricgenius now returns some garbage-data in the lyrics we must clean up
@@ -444,7 +420,7 @@ class LyricManager:
 
         with logging_redirect_tqdm():
             for task in tqdm.tqdm(tasks, desc="Fetching lyrics"):
-                task_with_lyrics = self._fetch_lyrics_v2(task)
+                task_with_lyrics = self._fetch_lyrics(task)
                 tasks_with_lyrics.append(task_with_lyrics)
 
             # Temporarily debugging 'Genius' lyric fetcher 
