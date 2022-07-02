@@ -10,7 +10,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import tqdm
 
 # 1st Party
-from components import AlignmentLyricsHandler
+from components import LyricMatcher
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
 from components import LyricValidity
@@ -18,8 +18,26 @@ from lyric_fetcher import LyricFetcherInterface
 
 
 class LyricManager:
+    """ Facilitates a multi-step process to turn an audio file and lyric text, into a .json file with lyric timing info.
+
+    The process is broken down into the following steps:
+        - Fetch     - Acquiring lyrics from local .txt file or alternate source.
+        - Validate  - Check if lyrics appear to match song. Typically only needed for alternate sources of lyrics.
+        - Sanitize  - Clean up fetched and validated lyrics, removing non-lyric data (e.g [Chorus])
+        - Pre-alignment process - Create intermediate data allowing for time aligned lyrics to be more easily matched
+            to the sanitized (and more structured) lyrics.
+        - Alignment - Determines start and end time for each word in the songs lyrics.
+        - Post-alignment match - Matches the time-aligned words to the structured and validated lyrics using the
+            created intermediate data.
+
+    TODO: Expand on details as to which classes assist in which part of the process.
+    """
 
     def __init__(self, all_lyric_fetchers, lyric_aligner):
+
+        self.all_lyric_fetchers = all_lyric_fetchers
+        self.lyric_aligner = lyric_aligner
+
         # The version of aligned lyrics json the LyricManager will export to.
         # A simple, but imperfect, approach to ensure readers of the lyric data
         # won't be surprised or unexpectedly broken.
@@ -29,10 +47,7 @@ class LyricManager:
         # PATCH version when you make backwards compatible bug fixes.
         self.json_schema_version = "2.0.0"
 
-        self.alignment_lyrics_handler = AlignmentLyricsHandler(self.json_schema_version)
-
-        self.all_lyric_fetchers = all_lyric_fetchers
-        self.lyric_aligner = lyric_aligner
+        self.lyric_matcher = LyricMatcher(self.json_schema_version)
 
         self.extension_alignment_ready = ".alignment_ready"
 
@@ -88,6 +103,7 @@ class LyricManager:
         print(f"Structured:  [ {sd}")
 
 
+    # TODO: Move this into LyricMatcher
     def _match_aligned_lyrics_with_structured_lyrics(self, lyrics_time_aligned, lyrics_structured, debug_print=False):
         ''' Matches time aligned lyrics with (sentance) structured lyrics.
 
@@ -286,32 +302,6 @@ class LyricManager:
 
         return lyric_align_task
 
-
-    # Now relegated to individual lyric sources
-    # def _sanitize_lyrics(self, lyric_align_task: AudioLyricAlignTask):
-    #     """ Sanitizes lyric text in a AudioLyricAlignTask by removing gibberish and replacing tricky characters.
-        
-    #     Currently somewhat hard-coded fix issues with lyrics stemming from a specific source.
-    #     """
-    #     lyrics = lyric_align_task.lyric_text_raw
-
-    #     # lyricgenius now returns some garbage-data in the lyrics we must clean up
-    #     # TODO: Delegate this clean up to the relevant fetcher, i.e. genius should clean genius garbage
-    #     # other db, should clean other db garbage
-    #     lyrics = self.lyric_sanitizer.remove_leading_title(lyric_align_task.song_name, lyrics)
-    #     lyrics = self.lyric_sanitizer.remove_embed_at_end(lyrics)
-
-    #     # Clears non-lyric content like [verse 1] and empty lines
-    #     lyrics = self.lyric_sanitizer.remove_non_lyrics(lyrics)
-    #     # TODO: ALSO SPLITS string, this isn't clear and should be 'separated out' or unified somehow with the
-    #     # local file handler/sanitizer.
-
-    #     lyrics = self.lyric_sanitizer.replace_difficult_characters(lyrics)
-
-    #     lyric_align_task.lyric_text_sanitized = lyrics
-        
-    #     return lyric_align_task
-
     
     def _align_lyrics(self, lyric_align_task: AudioLyricAlignTask, file_output_path: Path, use_preexisting_files: bool):
         """A class for a user
@@ -325,7 +315,7 @@ class LyricManager:
         """
 
         # Most of this is to make the task of matching timing back to words a lot easier.
-        alignment_lyrics = self.alignment_lyrics_handler.convert_lyrics_raw_to_alignmentlyrics(lyric_align_task.lyric_text_sanitized)
+        alignment_lyrics = self.lyric_matcher.convert_lyrics_string_to_match_lyrics(lyric_align_task.lyric_text_sanitized)
 
         lyrics_alignment_ready = []
 
@@ -346,19 +336,17 @@ class LyricManager:
         # TODO: Write intermediate lyric file on-disk for aligner tool to use
         #intermediate_lyric_file = "path"
 
-        # Hard-coded for 'Go-go's vacation' currently
         time_aligned_lyrics = self.lyric_aligner.align_lyrics(
             lyric_align_task.path_to_audio_file,
             path_to_alignment_ready_file,
             use_preexisting=use_preexisting_files
         )
-        #time_aligned_lyrics = self.lyric_aligner.align_lyrics(audio_file, lyric_sanitized_file, use_preexisting=True)
 
         lyrics_structured_aligned = self._match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
 
         # recordtype can't be auto-converted to json, so we must turn it into a dict
         #lyrics_json = self._convert_lyric_recordtype_to_dict(lyrics_structured_aligned)
-        lyric_align_task.lyrics_aligned = self.alignment_lyrics_handler.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
+        lyric_align_task.lyrics_aligned = self.lyric_matcher.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
 
         return lyric_align_task
 
@@ -441,8 +429,6 @@ class LyricManager:
 
         tasks_with_lyrics = []
         tasks_with_lyrics_valid = []
-        tasks_with_lyrics_polished = []
-        #lyric_align_tasks_aligned = []
 
         with logging_redirect_tqdm():
             for task in tqdm.tqdm(tasks, desc="Fetching, validating, and sanitizing lyrics"):
@@ -455,17 +441,7 @@ class LyricManager:
             # For now we only keep (probably) valid lyrics
             tasks_with_lyrics_valid = [task for task in tasks_with_lyrics if task.lyric_validity == LyricValidity.Valid]
 
-            # for task in tqdm.tqdm(tasks_with_lyrics_valid, desc="Sanitizing lyrics"):
-
-            #     # Ugly hack to make sanitization temporarily work for both genius and local files, fix soon
-            #     if task.lyric_text_sanitized:
-            #         tasks_with_lyrics_polished.append(task)
-            #         continue
-
-            #     task_with_polished_lyrics = self._sanitize_lyrics(task)
-            #     tasks_with_lyrics_polished.append(task_with_polished_lyrics)
-
-            # Because lyric alignment is fairly time-consuming (~1 minute processing per 1 minute audio), we write the
+            # Because lyric alignment is fairly time-consuming (~0.5 minute processing per 1 minute audio), we write the
             # results to disk in the same loop to ensure nothing is lost in case of unexpected errors.
             for task in tqdm.tqdm(tasks_with_lyrics_valid, desc="Align lyrics"):
                 lyric_align_task = self._align_lyrics(task, file_output_path, use_preexisting_files)

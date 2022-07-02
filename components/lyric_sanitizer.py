@@ -13,7 +13,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import tqdm
 
 # 1st Party
-from components import AlignmentLyricsHandler
+from components import LyricsMatcher
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
 
@@ -76,7 +76,8 @@ class LyricSanitizer():
         for lyric_line in all_lyric_lines:
             # Removes [<any content, except newlines>]
             #complete_lyric_string = re.sub(r"\[.*\]", '', complete_lyric_string)
-            lyric_line = re.sub(r"\[[a-zA-Z0-9 -]*\]", '', lyric_line)
+            #lyric_line = re.sub(r"\[[a-zA-Z0-9 -]*\]", '', lyric_line) # Didn't catch &, or . and the like
+            lyric_line = re.sub(r"\[(.*?)\]", '', lyric_line)
 
             lyric_line = lyric_line.strip()
 
