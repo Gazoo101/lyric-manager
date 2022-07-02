@@ -1,37 +1,25 @@
 # Python
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
+from typing import List
 
 # 3rd Party
 
 # 1st Party
 
 
-# AlignmentLyric is all data required to properly reassemble the full lyrics once the Aligner as processed the
-# raw text.
+# AlignmentLyric is all data required to properly reassemble the full lyrics once the Aligner as processed the raw text.
 @dataclass
 class AlignmentLyric:
-    word_original: str  = ""        # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
-    word_single: str = ""           # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
-    word_alignment: str = ""        # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
-    word_split_char_pre: str = ""   # The pre-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
-    word_split_char_post: str = ""  # The pos-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
-    line_index: int = -1
-    time_start: float = -1.0
-    time_end: float = -1.0
+    word_original: str          = "" # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
+    word_single: str            = "" # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
+    word_alignment: str         = "" # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
+    word_split_char_pre: str    = "" # The pre-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
+    word_split_char_post: str   = "" # The pos-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
+    line_index: int             = -1
+    time_start: float           = -1.0
+    time_end: float             = -1.0
 
-# AlignmentLyric = recordtype('AlignmentLyric',
-#     [
-#         ('word_original', ''),          # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
-#         ('word_single', ''),            # Doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
-#         ('word_alignment', ''),         # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
-#         ('word_split_char_pre', ''),    # The pre-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
-#         ('word_split_char_post', ''),   # The pos-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
-#         ('line_index', -1), 
-#         ('time_start', -1.0),
-#         ('time_end', -1.0)
-#     ]
-# )
 
 class AlignmentLyricsHandler():
     ''' A class to deal with all the conversions to and from AlignmentLyric struct(s).
@@ -44,7 +32,7 @@ class AlignmentLyricsHandler():
         self.json_schema_version = json_schema_version
 
 
-    def convert_lyrics_raw_to_alignmentlyrics(self, lyrics):
+    def convert_lyrics_raw_to_alignmentlyrics(self, lyrics: List[str]):
         '''
 
         Args:

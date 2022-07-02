@@ -1,3 +1,4 @@
 lyricsgenius==3.0.1
 strictyaml==1.6.1
 jsons
+tqdm

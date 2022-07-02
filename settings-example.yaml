@@ -5,10 +5,13 @@ general:
   # - LocalFile
   # - Genius
   # - LyricsDotOvh (Not fully implemented)
-  # If left empty, LyricManager will assume local files are available?
+
+  # Order determines priority. LyricManager will stop at the first valid source of lyrics. The recommended order is:
+  # - LocalFile
+  # - Genius
   lyric_fetchers:
     - LocalFile
-    - Genius
+  #  - Genius
 
   # Required, if lyric_fetchers includes Genius
   lyric_fetcher_genius_token:
@@ -17,10 +20,14 @@ general:
   #   - NUSAutoLyrixAlignOffline
   #   - NUSAutoLyrixAlignOnline (Not fully implemented)
   #   - Disabled
-  lyric_aligner:
+  lyric_aligner: Disabled
 
-  # Required, if lyric_aligner=NUSAutoLyrixAlignOffline
+  # Required, if 'lyric_aligner: NUSAutoLyrixAlignOffline'
   path_to_NUSAutoLyrixAlignOffline:
+
+  # Path to where LyricManager temporarily copies files for NUSAutoLyrixAlignOffline to parse
+  # Note, NUSAutoLyrixAlignOffline does *not* function properly with a path containing spaces (' ')
+  path_to_NUSAutoLyrixAlign_working_directory: ~/nusautolyrixalign_working_directory
 
   # LyricManager supports two export_readable_json settings:
   #   - False: Few spaces, few line breaks, no tabs. Intended for low disk space consumtion.
@@ -29,7 +36,7 @@ general:
 
 data:
   # Folder with music for LyricManager to parse
-  path_to_audio_files_to_process: C:/path/to/your/music
+  path_to_audio_files_to_process: ~/path/to/your/music
 
   # Any folders added here will be excluded from processing. Mainly useful for recursive parsing.
   folders_to_exclude:
@@ -39,7 +46,7 @@ data:
   overwrite_existing_generated_files: True
 
   file_output_location: SeparateDirectory
-  path_to_output_files:
+  path_to_output_files: ./output
 
   # TODO: Turn this into Enum, as we'll likely want fairly varied behavior for using pre-existing
   # or getting new files in for various situations.

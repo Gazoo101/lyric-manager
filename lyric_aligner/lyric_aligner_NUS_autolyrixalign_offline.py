@@ -2,7 +2,6 @@
 import subprocess
 import logging
 from pathlib import Path
-import os
 from datetime import datetime
 
 # 3rd Party
@@ -11,17 +10,41 @@ from datetime import datetime
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
 import components
-#from components import FileOps
-#from components import FileOperations
+
 
 class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
-    '''
-        https://github.com/chitralekha18/AutoLyrixAlign
+    """ Lyric aligner based on the offline version of the NUS Auto Lyrix Align project which can be downloaded here:
+    https://github.com/chitralekha18/AutoLyrixAlign
 
-        - Inserts "BREATH*" in-between lyrics
-        - Appears to handle .mp3 as well as .wav...?
+    *** Installation notes:
 
-    '''
+    Tested to work under Ubuntu 18.04 and 22.04. Download the source, follow the installation instructions. The
+    following additional instructions may be helpful on Ubuntu 22.04 (and possibly earlier):
+
+    Singularity 2.5.2 can be downloaded here: https://singularityware.github.io/all-releases
+
+    apt-get build-essential     | To install C compiler
+    apt-get python-is-python3   | To give configure/make access to Python (it expects 'Python' to exist)
+    apt-get libarchive-dev      | Required to build Singularity 2.5.2
+
+    Inside the Singularity 2.5.2 source, the following file: /src/lib/image/squashfs/mount.c
+
+    Must have ~line 55 altered...
+
+    FROM:   if ( singularity_mount(loop_dev, mount_point, "squashfs", MS_NOSUID|MS_RDONLY|MS_NODEV, "errors=remount-ro") < 0 ) {
+    TO:     if ( singularity_mount(loop_dev, mount_point, "squashfs", MS_NOSUID|MS_RDONLY|MS_NODEV, NULL) < 0 ) {
+
+    or else, the image will not mount and the aligner will not run.
+
+
+    *** Auto Lyrix Align Dev. Notes:
+
+    - May insert "BREATH*" either at mis- or non-aligned words.
+    - Handles .mp3 files and .wav
+    - Songs of too large size, e.g. "The Young Punx - All These Things Are Gone" cause the aligner to lock up.
+        - TODO: Try converting the song to .wav and see if that helps.
+
+    """
 
     def __init__(self, path_temp_dir: Path, path_to_aligner: Path, path_to_output_dir: Path = None):
         """
@@ -44,6 +67,31 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
         if not path_to_aligner:
             raise Exception("No path to NUSAutoLyrixAlign provided. No alignment can take place.")
+
+        # Find one or two critical files
+        path_to_alignment_script = path_to_aligner / "RunAlignment.sh"
+        path_to_singularity_image = path_to_aligner / "kaldi.simg"
+
+        if not path_to_alignment_script.exists() or not path_to_singularity_image.exists():
+            raise Exception("NUSAutoLyrixAlign is missing vital files to execute properly.")
+
+        # Test these things:
+        # song = "/home/lasse/Workspace/audio_to_align/50 Cent - In da Club.mp3"
+        # lyrics = "/home/lasse/Workspace/lyric-manager/working_directory/50 Cent - In da Club.alignment_ready"
+        # self._align_lyrics_internal(song, lyrics)
+
+        # Works...
+        # song = "/home/lasse/Workspace/audio_to_align/Street Hoop OST/612 - Street Hoop - BODY’S POWER.mp3"
+        # lyrics = "/home/lasse/Workspace/lyric-manager/working_directory/612 - Street Hoop - BODY’S POWER.alignment_ready"
+        # self._align_lyrics_internal(song, lyrics)
+
+        # song = "/home/lasse/Workspace/audio_to_align/Street Hoop OST/212 - Street Hoop - FUNKY HEAT.mp3"
+        # lyrics = "/home/lasse/Workspace/lyric-manager/working_directory/212 - Street Hoop - FUNKY HEAT.alignment_ready"
+        # self._align_lyrics_internal(song, lyrics)
+
+        horse = 2
+
+
 
     def _convert_to_wordandtiming(self, path_to_aligned_lyrics):
 
@@ -110,27 +158,31 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
             logging.info("Lyric aligner given non .mp3 file, skipping.")
             return []
 
-        path_temp_file_audio = self.path_temp_dir / "audio.mp3"
-        path_temp_file_lyric = self.path_temp_dir / "lyric.txt"
+        # Replaced with internal func
+        # path_temp_file_audio = self.path_temp_dir / "audio.mp3"
+        # path_temp_file_lyric = self.path_temp_dir / "lyric.txt"
 
-        components.FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
-        components.FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
+        # components.FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
+        # components.FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
 
-        path_temp_file_lyric_aligned = self.path_temp_dir / "lyric_aligned.txt"
+        # path_temp_file_lyric_aligned = self.path_temp_dir / "lyric_aligned.txt"
 
-        process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
+        # process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
 
-        process_executed = " ".join(process)
-        print(process_executed)
-        logging.debug(f"Executing command: {process_executed}")
+        # process_executed = " ".join(process)
+        # print(process_executed)
+        # logging.debug(f"Executing command: {process_executed}")
 
-        #os.chdir(self.path_aligner)
+        # #os.chdir(self.path_aligner)
 
-        #test = os.getcwd()
+        # #test = os.getcwd()
 
-        # Actual execution
+        # # Actual execution
+        # datetime_before_alignment = datetime.now()
+        # subprocess.run(process, cwd=self.path_aligner)
+
         datetime_before_alignment = datetime.now()
-        subprocess.run(process, cwd=self.path_aligner)
+        path_temp_file_lyric_aligned = self._align_lyrics_internal(path_to_audio_file, path_to_lyric_input)
         
         # The most dependable way to ensure that the NUSAutoLyrixAlign process succeeded, is to
         # check if the temporary output file has been updated.
@@ -153,55 +205,82 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         return word_timings
 
 
-    def align_lyrics_part_working(self, path_to_audio_file, path_to_lyric_input):
+    def _align_lyrics_internal(self, path_to_audio_file: Path, path_to_lyric_input: Path):
+        """ Copies audio and lyric file to a working directory, performs alignment, returns the path to this file. """
+        logging.info(f"Aligment audio: {path_to_audio_file}")
+        logging.info(f"Aligment lyric: {path_to_lyric_input}")
 
-        # <audio_file>.mp3   =>   <audio_file>.aligned_lyric
-        path_to_temp_file = path_to_audio_file.with_suffix(".lyrics_aligned")
+        # TODO: Upgrade to handle mp3 to wav conversion as that seems to go side-ways for Singularity...
 
-        # Hard code to ensure this works with vacation.wav etc.
-        path_to_example_folder = Path('/home/lasse/AudioAlignment/NUSAutoLyrixAlign/')
-        path_to_audio_file = self.path_aligner / 'example/Vacation.wav'
-        path_to_lyric_input = self.path_aligner / 'example/vacation.txt'
-        path_to_temp_file = self.path_aligner / 'example/vacation_aligned.txt'
+        path_temp_file_audio = self.path_temp_dir / "audio.mp3"
+        path_temp_file_lyric = self.path_temp_dir / "lyric.txt"
 
-        path_to_kaldi_simg = self.path_aligner / 'kaldi.simg'
-        path_to_alignment_script = self.path_aligner / 'RunAlignment.sh'
+        components.FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
+        components.FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
 
+        path_temp_file_lyric_aligned = self.path_temp_dir / "lyric_aligned.txt"
 
-        process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh {path_to_audio_file} {path_to_lyric_input} {path_to_temp_file}"']
+        process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
 
-        process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"']
-
-        # worx
-        process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh"']
-
-        process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" {path_to_audio_file} {path_to_lyric_input} {path_to_temp_file}']
-
-
-        # This worked:
-        # singularity shell kaldi.simg -c "./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"
-        # singularity shell kaldi.simg -c "./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"
-
-        # Step 1: Run that
-
-        # TEST AND DEVELOP THIS BIT ON LINUX
-
-        # debug
         process_executed = " ".join(process)
-        print(process_executed)
-        logging.debug(f"Executing command: {process_executed}")
+        logging.info(f"Executing command: {process_executed}")
 
-        #os.chdir(self.path_aligner)
+        subprocess.run(process, cwd=self.path_aligner)
 
-        #test = os.getcwd()
+        return path_temp_file_lyric_aligned
 
-        #subprocess.run(process, cwd=self.path_aligner)
 
-        #
-        #f'singularity shell kaldi.simg -c "./RunAlignment.sh <input audio file> <input lyrics file> <output file>"'
+
+    # Clean out...
+    # def align_lyrics_part_working(self, path_to_audio_file, path_to_lyric_input):
+
+    #     # <audio_file>.mp3   =>   <audio_file>.aligned_lyric
+    #     path_to_temp_file = path_to_audio_file.with_suffix(".lyrics_aligned")
+
+    #     # Hard code to ensure this works with vacation.wav etc.
+    #     path_to_example_folder = Path('/home/lasse/AudioAlignment/NUSAutoLyrixAlign/')
+    #     path_to_audio_file = self.path_aligner / 'example/Vacation.wav'
+    #     path_to_lyric_input = self.path_aligner / 'example/vacation.txt'
+    #     path_to_temp_file = self.path_aligner / 'example/vacation_aligned.txt'
+
+    #     path_to_kaldi_simg = self.path_aligner / 'kaldi.simg'
+    #     path_to_alignment_script = self.path_aligner / 'RunAlignment.sh'
+
+
+    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh {path_to_audio_file} {path_to_lyric_input} {path_to_temp_file}"']
+
+    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"']
+
+    #     # worx
+    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh"']
+
+    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" {path_to_audio_file} {path_to_lyric_input} {path_to_temp_file}']
+
+
+    #     # This worked:
+    #     # singularity shell kaldi.simg -c "./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"
+    #     # singularity shell kaldi.simg -c "./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"
+
+    #     # Step 1: Run that
+
+    #     # TEST AND DEVELOP THIS BIT ON LINUX
+
+    #     # debug
+    #     process_executed = " ".join(process)
+    #     print(process_executed)
+    #     logging.debug(f"Executing command: {process_executed}")
+
+    #     #os.chdir(self.path_aligner)
+
+    #     #test = os.getcwd()
+
+    #     #subprocess.run(process, cwd=self.path_aligner)
+
+    #     #
+    #     #f'singularity shell kaldi.simg -c "./RunAlignment.sh <input audio file> <input lyrics file> <output file>"'
 
         
 
-        word_timings = self._convert_to_wordandtiming(path_to_temp_file)
+    #     word_timings = self._convert_to_wordandtiming(path_to_temp_file)
 
-        return word_timings
+    #     return word_timings

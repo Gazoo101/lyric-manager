@@ -3,7 +3,6 @@
 # .elrc format appears to not support if timing is a word ending or a new word starting. - stick with JSON
 
 # Python
-#from LyricManager.lyric_aligner.lyric_aligner_interface import LyricAlignerInterface
 import sys
 import logging
 from argparse import ArgumentParser
@@ -14,8 +13,6 @@ import os
 
 
 # 1st Party
-#from components import FileOps
-
 from lyric_fetcher import LyricFetcherType
 from lyric_fetcher import LyricFetcherInterface
 from lyric_fetcher import LyricFetcherDisabled
@@ -51,21 +48,23 @@ def create_lyric_fetchers(lyric_fetcher_types, genius_token, path_to_output_dir=
     
     return all_lyric_fetchers
 
-def create_lyric_aligner(lyric_aligner_type, path_to_NUSAutoLyrixAlignOffline, path_to_output_dir=None):
+def create_lyric_aligner(
+    lyric_aligner_type: LyricAlignerType,
+    path_to_NUSAutoLyrixAlignOffline: Path,
+    path_to_NUSAutoLyrixAlign_working_directory: Path,
+    path_to_output_dir: Path=None):
+
     lyric_aligner = None
 
-    # We construct a temporary path to manage the lyrics aligner temporary output
-    lyric_aligner_temp_path = Path.home() / "LyricManager"
-
     if lyric_aligner_type == LyricAlignerType.Disabled:
-        print("Lyric Aligner: Disabled")
-        lyric_aligner = LyricAlignerDisabled(lyric_aligner_temp_path)
+        logging.info('Lyric Aligner: Disabled')
+        lyric_aligner = LyricAlignerDisabled(path_to_NUSAutoLyrixAlign_working_directory)
     elif lyric_aligner_type == LyricAlignerType.NUSAutoLyrixAlignOffline:
-        print("Lyric Aligner: Local File(s)")
-        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOffline(lyric_aligner_temp_path, path_to_NUSAutoLyrixAlignOffline, path_to_output_dir)
+        logging.info("Lyric Aligner: Local File(s)")
+        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOffline(path_to_NUSAutoLyrixAlign_working_directory, path_to_NUSAutoLyrixAlignOffline, path_to_output_dir)
     elif lyric_aligner_type == LyricAlignerType.NUSAutoLyrixAlignOnline:
-        print("Lyric Aligner: Genius Database")
-        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOnline(lyric_aligner_temp_path)
+        logging.info("Lyric Aligner: Genius Database")
+        lyric_aligner = LyricAlignerNUSAutoLyrixAlignOnline(path_to_NUSAutoLyrixAlign_working_directory)
 
     return lyric_aligner
 
@@ -131,6 +130,7 @@ if __name__ == '__main__':
     lyric_aligner = create_lyric_aligner(
         parsed_settings['general']['lyric_aligner'],
         parsed_settings['general']['path_to_NUSAutoLyrixAlignOffline'],
+        parsed_settings['general']['path_to_NUSAutoLyrixAlign_working_directory'],
         parsed_settings['data']['path_to_output_files']
     )
 

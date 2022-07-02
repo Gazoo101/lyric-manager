@@ -9,8 +9,7 @@ from dataclasses import dataclass
 from requests.exceptions import Timeout
 from pathlib import Path
 from datetime import datetime
-from enum import Enum, auto
-from typing import Dict, DefaultDict
+from typing import Dict, DefaultDict, Tuple
 from collections import defaultdict
 
 # 3rd Party
@@ -20,8 +19,9 @@ import jsons
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
 from components import AudioLyricAlignTask
-from components import text_simplifier
 from components import LyricValidity
+from components import text_simplifier
+from components import LyricSanitizer
 
 # FetchErrors is a @dataclass so we can construct defaultdict(FetchErrors) which can be serialized using jsons.
 # defaultdict(defaultdict(Enum)) cannot be serialized in using jsons.
@@ -45,6 +45,9 @@ class LyricFetcherGenius(LyricFetcherInterface):
         super().__init__(".genius", path_to_output_dir)
         self.token = token
         self.genius = lyricsgenius.Genius(self.token)
+
+        # TODO: Consider elevating this into interface...
+        self.lyric_sanitizer = LyricSanitizer()
 
         # In an effort to not overload Genius' servers, we insert some self-rate limiting
         self.rate_limit = True
@@ -140,7 +143,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
         return LyricValidity.WrongSong
 
 
-    def fetch_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask):
+    def fetch_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask) -> Tuple[str, LyricValidity]:
 
         ####
         # Fetch pre-cached version
@@ -157,14 +160,14 @@ class LyricFetcherGenius(LyricFetcherInterface):
             with open(path_to_cached_lyrics, 'r', encoding='utf-8') as file:
                 file_contents = file.read()
 
-            audio_lyric_align_task.lyric_validity = self._validate_lyrics(audio_lyric_align_task, file_contents)
+            lyric_validity = self._validate_lyrics(audio_lyric_align_task, file_contents)
             
-            return file_contents
+            return file_contents, lyric_validity
 
         ####
         # Fetch fresh version
         if self.fetch_history[audio_lyric_align_task.filename].not_found >= 1:
-            return None
+            return None, LyricValidity.NotSet
 
         if self.rate_limit:
             time_since_last_fetch = datetime.now() - self.timestamp_recent_fetch
@@ -186,16 +189,38 @@ class LyricFetcherGenius(LyricFetcherInterface):
             logging.warning("Timeout error.")
             self.fetch_history[audio_lyric_align_task.filename].time_out += 1
             self._save_fetch_history()
-            return None
+            return None, LyricValidity.NotSet
 
         if not genius_song:
             logging.warning(f"Song '{audio_lyric_align_task.song_name}' was not found.")
             self.fetch_history[audio_lyric_align_task.filename].not_found += 1
             self._save_fetch_history()
-            return None
+            return None, LyricValidity.NotSet
 
         # Utf-8 required, as some lyrics sneak in awful non-ascii chars which break file-writing.
         with open(path_to_cached_lyrics, 'w', encoding="utf-8") as file:
             file.write(genius_song.lyrics)      # If there are UTF-8 chars - non unicode, we're effed'
 
-        return genius_song.lyrics
+        lyric_validity = self._validate_lyrics(audio_lyric_align_task, genius_song.lyrics)
+
+        return genius_song.lyrics, lyric_validity
+
+
+    """ See LyricFetcherInterface.sanitize_raw_lyrics() for description. """
+    def sanitize_raw_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> str:
+        lyrics = audio_lyric_align_task.lyric_text_raw
+
+        # lyricgenius now returns some garbage-data in the lyrics we must clean up
+        # TODO: Delegate this clean up to the relevant fetcher, i.e. genius should clean genius garbage
+        # other db, should clean other db garbage
+        lyrics = self.lyric_sanitizer.remove_leading_title(audio_lyric_align_task.song_name, lyrics)
+        lyrics = self.lyric_sanitizer.remove_embed_at_end(lyrics)
+
+        # Clears non-lyric content like [verse 1] and empty lines
+        lyrics = self.lyric_sanitizer.remove_non_lyrics(lyrics)
+        # TODO: ALSO SPLITS string, this isn't clear and should be 'separated out' or unified somehow with the
+        # local file handler/sanitizer.
+
+        lyrics = self.lyric_sanitizer.replace_difficult_characters(lyrics)
+
+        return lyrics

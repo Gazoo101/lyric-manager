@@ -1,5 +1,5 @@
 # Python
-#from typing import NamedTuple
+import sys
 import strictyaml
 import logging
 from pathlib import Path
@@ -7,7 +7,6 @@ from enum import Enum
 from enum import auto
 from functools import partial
 from typing import Union
-import sys
 
 # 3rd Party
 
@@ -19,25 +18,6 @@ import sys
 import lyric_fetcher
 import lyric_aligner
 
-# TODO: Replace with dataclass, or even better, consider replacing with just easydict and converting
-# some parts as this is getting a bit silly...
-# Dataclass might be more reasonable to enable defaults, and why are we allowing for command-line? We'd not
-# need it any time soon.
-# Settings = namedtuple("Settings",
-#     [
-#         'path_to_audio_files',
-#         'recursive_iteration',
-#         'overwrite_generated_file',
-#         'file_output_location',
-#         'file_output_path',
-#         'export_readable_json',
-#         'lyric_fetchers',
-#         'lyric_fetcher_genius_token',
-#         'keep_fetched_lyrics',
-#         'lyric_aligner',
-#         'path_to_NUSAutoLyrixAlignOffline',
-#         'use_preexisting_files'
-#     ])
 
 class FileOutputLocation(Enum):
     NextToAudioFile = auto()
@@ -51,6 +31,10 @@ class YamlParser():
         self.parsing_funcs['lyric_fetchers'] = partial(self._strings_to_enum, lyric_fetcher.LyricFetcherType)
         self.parsing_funcs['lyric_aligner'] = partial(self._strings_to_enum, lyric_aligner.LyricAlignerType)
         self.parsing_funcs['file_output_location'] = partial(self._strings_to_enum, FileOutputLocation)
+        self.parsing_funcs['path_to_audio_files_to_process'] = partial(self._strings_to_paths)
+        self.parsing_funcs['path_to_output_files'] = partial(self._strings_to_paths)
+        self.parsing_funcs['path_to_NUSAutoLyrixAlignOffline'] = partial(self._strings_to_paths)
+        self.parsing_funcs['path_to_NUSAutoLyrixAlign_working_directory'] = partial(self._strings_to_paths, check_spaces=True)
 
 
     def parse(self, path_to_yaml_file:Path):
@@ -73,10 +57,6 @@ class YamlParser():
                 logging.error("File output set to 'SeparateDirectory', but no 'path_to_output_files' was provided.")
                 sys.exit(1)
 
-        # Insta-convert some paths - perhaps write a parser for this.
-        yaml_contents['data']['path_to_output_files'] = Path(yaml_contents['data']['path_to_output_files'])
-        yaml_contents['data']['path_to_audio_files_to_process'] = Path(yaml_contents['data']['path_to_audio_files_to_process'])
-
         return yaml_contents
 
     def _apply_parsing_functions_to_dict(self, yaml_dict:dict):
@@ -90,6 +70,11 @@ class YamlParser():
             
             if isinstance(value, dict):
                 self._apply_parsing_functions_to_dict(value)
+                continue
+
+            # Turn empty entries ('') into None
+            if not value:
+                yaml_dict[key] = None
                 continue
 
             if key in self.parsing_funcs:
@@ -120,3 +105,15 @@ class YamlParser():
             sys.exit(1)
 
         return enum_object
+
+    def _strings_to_paths(self, input_string: str, check_spaces: bool = False):
+        """ Turns strings into Pathlib.Path objects, handles '~' symboles, resolves relative paths. """
+        path = Path(input_string)
+        path = path.expanduser()    # '~/' => '/home/user/'
+        path = path.resolve()
+
+        if check_spaces:
+            if ' ' in str(path):
+                raise Exception(f"A given path ('{path}') contained an illegal space character (' ').")
+
+        return path

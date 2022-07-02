@@ -1,6 +1,8 @@
 # Hand-crafted additions
 .vscode/*
 settings.yaml
+fetch_history.genius
+output/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
