@@ -13,7 +13,7 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import tqdm
 
 # 1st Party
-from components import LyricsMatcher
+from components import LyricMatcher
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
 
@@ -42,7 +42,7 @@ class LyricSanitizer():
 
         pos_of_bracket_start = lyrics_start.find("[")
 
-        if pos_of_bracket_start:
+        if pos_of_bracket_start != -1:
             return lyrics[pos_of_bracket_start:]
 
         # else - Strategy 2

@@ -1,15 +1,23 @@
 # Python
-from abc import ABC, abstractmethod
 import logging
-from collections import namedtuple
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 
+
 # 3rd Party
+
 
 # 1st Party
 import components
 
-WordAndTiming = namedtuple("WordAndTiming", ["word", "time_start", "time_end"])
+
+@dataclass
+class WordAndTiming():
+    word: str
+    time_start: float
+    time_end: float
+
 
 class LyricAlignerInterface(ABC):
 
@@ -41,7 +49,7 @@ class LyricAlignerInterface(ABC):
         return path_to_aligned_lyric_file
 
     @abstractmethod
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting):
+    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting) -> list[WordAndTiming]:
         raise NotImplementedError
 
     @abstractmethod

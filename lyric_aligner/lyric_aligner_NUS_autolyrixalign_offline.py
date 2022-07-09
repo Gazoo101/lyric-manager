@@ -18,8 +18,9 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
     *** Installation notes:
 
-    Tested to work under Ubuntu 18.04 and 22.04. Download the source, follow the installation instructions. The
-    following additional instructions may be helpful on Ubuntu 22.04 (and possibly earlier):
+    Tested to work under Ubuntu 18.04 and 22.04. Download the AutoLyrixAlign package, follow the included readme.txt
+    installation instructions. The following additional instructions may be helpful on Ubuntu 22.04
+    (and possibly earlier ubuntu versions):
 
     Singularity 2.5.2 can be downloaded here: https://singularityware.github.io/all-releases
 
@@ -36,14 +37,14 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
     or else, the image will not mount and the aligner will not run.
 
-
     *** Auto Lyrix Align Dev. Notes:
 
     - May insert "BREATH*" either at mis- or non-aligned words.
     - Handles .mp3 files and .wav
-    - Songs of too large size, e.g. "The Young Punx - All These Things Are Gone" cause the aligner to lock up.
-        - TODO: Try converting the song to .wav and see if that helps.
-
+    - A small selection of songs, e.g. "The Young Punx - All These Things Are Gone" cause the pre-processing step to
+      lock up.
+        - Preliminary investigations indicate that 'scipy.signal.resample()' appears to simply never return, or at least
+          not return within a reasonable amount of time.
     """
 
     def __init__(self, path_temp_dir: Path, path_to_aligner: Path, path_to_output_dir: Path = None):
@@ -89,6 +90,10 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         # lyrics = "/home/lasse/Workspace/lyric-manager/working_directory/212 - Street Hoop - FUNKY HEAT.alignment_ready"
         # self._align_lyrics_internal(song, lyrics)
 
+        #song = "/home/lasse/Workspace/audio_to_align_failure_cases/The Young Punx - All These Things Are Gone.mp3"
+
+        #"The Young Punx - All These Things Are Gone.mp3"
+
         horse = 2
 
 
@@ -118,7 +123,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         return timed_words
 
 
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting=True):
+    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting=True) -> list[WordAndTiming]:
         """ TODO: 1-line explanation
 
         Copies audio and lyric files to a temporary location in order to then
@@ -153,33 +158,11 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
             return []
 
-        # TODO: Support raw .wav if there's enough call for it.
-        if path_to_audio_file.suffix != ".mp3":
-            logging.info("Lyric aligner given non .mp3 file, skipping.")
-            return []
+        # # TODO: Support raw .wav if there's enough call for it.
+        # if path_to_audio_file.suffix != ".mp3":
+        #     logging.info("Lyric aligner given non .mp3 file, skipping.")
+        #     return []
 
-        # Replaced with internal func
-        # path_temp_file_audio = self.path_temp_dir / "audio.mp3"
-        # path_temp_file_lyric = self.path_temp_dir / "lyric.txt"
-
-        # components.FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
-        # components.FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
-
-        # path_temp_file_lyric_aligned = self.path_temp_dir / "lyric_aligned.txt"
-
-        # process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
-
-        # process_executed = " ".join(process)
-        # print(process_executed)
-        # logging.debug(f"Executing command: {process_executed}")
-
-        # #os.chdir(self.path_aligner)
-
-        # #test = os.getcwd()
-
-        # # Actual execution
-        # datetime_before_alignment = datetime.now()
-        # subprocess.run(process, cwd=self.path_aligner)
 
         datetime_before_alignment = datetime.now()
         path_temp_file_lyric_aligned = self._align_lyrics_internal(path_to_audio_file, path_to_lyric_input)
@@ -211,9 +194,13 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         logging.info(f"Aligment lyric: {path_to_lyric_input}")
 
         # TODO: Upgrade to handle mp3 to wav conversion as that seems to go side-ways for Singularity...
+        # Update, fixing conversion didn't help, it's in the scipy call that things go off the rails...
 
-        path_temp_file_audio = self.path_temp_dir / "audio.mp3"
-        path_temp_file_lyric = self.path_temp_dir / "lyric.txt"
+        path_temp_file_audio: Path = self.path_temp_dir / "audio.notset"
+        path_temp_file_lyric: Path = self.path_temp_dir / "lyric.txt"
+
+        # Update the temporary file suffix (.notset), to the proper audio file extension, e.g. .mp3 or .wav or .aiff
+        path_temp_file_audio = path_temp_file_audio.with_suffix(path_to_audio_file.suffix)
 
         components.FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
         components.FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
@@ -223,64 +210,10 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
 
         process_executed = " ".join(process)
-        logging.info(f"Executing command: {process_executed}")
 
+        # logging.info() -- Enter details of audio file (original name here)
+        logging.info(f"Executing command: {process_executed}")
         subprocess.run(process, cwd=self.path_aligner)
 
         return path_temp_file_lyric_aligned
 
-
-
-    # Clean out...
-    # def align_lyrics_part_working(self, path_to_audio_file, path_to_lyric_input):
-
-    #     # <audio_file>.mp3   =>   <audio_file>.aligned_lyric
-    #     path_to_temp_file = path_to_audio_file.with_suffix(".lyrics_aligned")
-
-    #     # Hard code to ensure this works with vacation.wav etc.
-    #     path_to_example_folder = Path('/home/lasse/AudioAlignment/NUSAutoLyrixAlign/')
-    #     path_to_audio_file = self.path_aligner / 'example/Vacation.wav'
-    #     path_to_lyric_input = self.path_aligner / 'example/vacation.txt'
-    #     path_to_temp_file = self.path_aligner / 'example/vacation_aligned.txt'
-
-    #     path_to_kaldi_simg = self.path_aligner / 'kaldi.simg'
-    #     path_to_alignment_script = self.path_aligner / 'RunAlignment.sh'
-
-
-    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh {path_to_audio_file} {path_to_lyric_input} {path_to_temp_file}"']
-
-    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"']
-
-    #     # worx
-    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh"']
-
-    #     process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" {path_to_audio_file} {path_to_lyric_input} {path_to_temp_file}']
-
-
-    #     # This worked:
-    #     # singularity shell kaldi.simg -c "./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"
-    #     # singularity shell kaldi.simg -c "./RunAlignment.sh example/Vacation.wav example/vacation.txt example/vacation_aligned.txt"
-
-    #     # Step 1: Run that
-
-    #     # TEST AND DEVELOP THIS BIT ON LINUX
-
-    #     # debug
-    #     process_executed = " ".join(process)
-    #     print(process_executed)
-    #     logging.debug(f"Executing command: {process_executed}")
-
-    #     #os.chdir(self.path_aligner)
-
-    #     #test = os.getcwd()
-
-    #     #subprocess.run(process, cwd=self.path_aligner)
-
-    #     #
-    #     #f'singularity shell kaldi.simg -c "./RunAlignment.sh <input audio file> <input lyrics file> <output file>"'
-
-        
-
-    #     word_timings = self._convert_to_wordandtiming(path_to_temp_file)
-
-    #     return word_timings

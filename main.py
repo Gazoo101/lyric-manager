@@ -134,8 +134,8 @@ if __name__ == '__main__':
         parsed_settings['data']['path_to_output_files']
     )
 
-    incoming_parameters = sys.argv[1:]
-
+    # Command-Line approach is currently, largely, deprecated...
+    #incoming_parameters = sys.argv[1:]
     # # Various command-line debug overwrite tests
     # # incoming_parameters = ['--help']
     # incoming_parameters = ['-lf', 'Genius']
@@ -145,18 +145,10 @@ if __name__ == '__main__':
     # incoming_parameters = ['-ap', 'D:/Music/', '-lf', 'Genius', '-r', '-kl', '-gt', '']
     # #incoming_parameters = ['-ap', 'D:/Music/', '-r']
 
-    #get_settings_from_yaml("D:/Code/LyricManager/settings.yaml")
-
-
-    # with open("D:/Code/LyricManager/settings.yaml") as file:
-    #     config = yaml.safe_load(file)
-
-    #lyric_fetcher, lyric_aligner, opts = _parse_arguments(incoming_parameters)
-
-    mylm = LyricManager(all_lyric_fetchers, lyric_aligner)
+    mylm = LyricManager( all_lyric_fetchers, lyric_aligner )
 
     mylm.fetch_and_align_lyrics(
-        parsed_settings['data']['path_to_audio_files_to_process'],
+        parsed_settings['data']['paths_to_process'],
         parsed_settings['data']['recursively_parse_audio_file_path'],
         parsed_settings['data']['keep_fetched_lyric_files'],   # Not currently respected I think...
         export_readable_json=parsed_settings['general']['export_readable_json'],

@@ -1,4 +1,11 @@
+# Python
+
+# 1st Party
 from .lyric_aligner_interface import LyricAlignerInterface
+from .lyric_aligner_interface import WordAndTiming
+
+# 3rd Party
+
 
 class LyricAlignerNUSAutoLyrixAlignOnline(LyricAlignerInterface):
     """ Lyric aligner based on the online version of the NUS Auto Lyrix Align project located here:
@@ -14,5 +21,5 @@ class LyricAlignerNUSAutoLyrixAlignOnline(LyricAlignerInterface):
     def _convert_to_wordandtiming(self, input):
         return []
 
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input):
+    def align_lyrics(self, path_to_audio_file, path_to_lyric_input) -> list[WordAndTiming]:
         return ""

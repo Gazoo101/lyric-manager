@@ -1,9 +1,9 @@
 # Python
 import os
-from pathlib import Path
 import json
 import logging
-from typing import List
+from pathlib import Path
+from datetime import datetime
 
 # 3rd Party
 from tqdm.contrib.logging import logging_redirect_tqdm
@@ -14,7 +14,11 @@ from components import LyricMatcher
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
 from components import LyricValidity
+from components import percentage
+from lyric_aligner import WordAndTiming
 from lyric_fetcher import LyricFetcherInterface
+from components.lyric_matcher import MatchResult
+
 
 
 class LyricManager:
@@ -51,25 +55,36 @@ class LyricManager:
 
         self.extension_alignment_ready = ".alignment_ready"
 
+        self.recognized_audio_filename_extensions = ["mp3", "wav", "aiff"]
 
-    def _percentage(self, numerator, denominator):
-        return 100 * float(numerator)/float(denominator) if denominator else 0
+    def _valid_audio_extension(self, filename: str):
+        for extension in self.recognized_audio_filename_extensions:
+            if filename.endswith(extension):
+                return True
+        
+        return False
 
 
-    def _get_all_audio_files(self, path, recursive):
+    def _get_audio_files_found_in_paths(self, all_paths: list[Path], recursive: bool):
 
         all_audio_files = []
 
-        if recursive:
-            for dirpath, dirnames, filenames in os.walk(path):
-                audio_files_in_dir = [Path(dirpath) / filename for filename in filenames if filename.endswith("mp3")]
-                all_audio_files.extend(audio_files_in_dir)
-        else:
-            all_audio_files = [Path(entry.path) for entry in os.scandir(path) if entry.name.endswith("mp3")]
+        for path in all_paths:
 
-        # os.walk() apparently returns files in an arbitrary order. For clarity/debugging, we prefer they are sorted
-        # by name 
-        audio_files_in_dir = sorted(audio_files_in_dir)
+            audio_files_in_path = []
+
+            if recursive:
+                for dirpath, dirnames, filenames in os.walk(path):
+                    audio_files_in_dir = [Path(dirpath) / filename for filename in filenames if self._valid_audio_extension(filename)]
+                    audio_files_in_path.extend(audio_files_in_dir)
+            else:
+                audio_files_in_path = [Path(entry.path) for entry in os.scandir(path) if entry.name.endswith("mp3")]
+
+            # os.walk() apparently returns files in an arbitrary order. For clarity/debugging, we prefer they are sorted
+            # by name 
+            audio_files_in_path = sorted(audio_files_in_path)
+
+            all_audio_files.extend(audio_files_in_path)
 
         return all_audio_files
 
@@ -101,123 +116,6 @@ class LyricManager:
         print("-- Lyric Matching --")
         print(f"Time aligned:  {td}")
         print(f"Structured:  [ {sd}")
-
-
-    # TODO: Move this into LyricMatcher
-    def _match_aligned_lyrics_with_structured_lyrics(self, lyrics_time_aligned, lyrics_structured, debug_print=False):
-        ''' Matches time aligned lyrics with (sentance) structured lyrics.
-
-        Aligned lyrics and structured lyrics rarely match exactly. This function uses a moving
-        expanding/contracting window in order to find the best structured lyric, for each aligned
-        lyric.
-
-        The algorithm will assume that the time aligned lyrics is the more sparse data, and use
-        it for the main for-loop. As the structured lyrics are scanned for a match, a window is
-        used within which to do a forward-search. If a match isn't found within the window, the
-        time aligned lyric is skipped and the window expands. Every time a match if found, the
-        window shrinks.
-
-        '''
-
-        #debug_print = True
-
-        # We'd like to easily iterate through each structured lyric word, so we'll transform the
-        # the list of strings (in lyrics_structured) into a long list of recordtypes, each with
-        # a start / stop time, and a line
-
-        #lyrics_structured_better = self._convert_lyric_sentences_to_stuctured_words(lyrics_structured)
-
-        # Step 1. Process lyrics_structured to befit the incoming lyrics_timing.
-        # E.g. NUSAutoAlignLyrix removes ()'s and appears to perhaps not match "'em" so it should
-        # be replaced with 'them' (before processing though)
-
-        # Step 2. For each timed lyric, find the 'best' match
-
-        # Iterate though each timed lyric
-        # - Use fuzzy wuzzy to find 'match of word' vs word given in timing
-        #   - For now - expect exact match
-        #   - If a match is no-go, there should be 2 types of tolerances
-        #       1. When holding a timed lyric, how far can we skip through the structured to find a match? (start with 3)
-        #       2. Assuming the limit for 1. is hit (e.g. no match within the next 3 words), how many times
-        #       can we timed lyrices are we allowed to not match. (start with 3)
-        #   - Reset each of these as the work through the lyrics
-
-        # We assumed that timed lyrics may not precisely fit the structured lyrics, specifically:
-        # - A structured lyric word may not appear in the timed lyrics
-        #   - Either because the input lyrics to align were bunk, or
-        #   - because the lyric alignment algorithm failed to properly match the word
-        # - Timed lyric may include words that don't match a lyric
-        #   - NUSAutoAlignLyrix includes a 'Breath*' word that should either be
-        #       - Matched to a proper word the algorithm mistakenly thought was a breath
-        #       - Removed as we don't really want to display 'Breath*'...?
-         
-        # Matching the timed lyrics to structured lyrics is centered around the timed lyrics -
-        # i.e. we iterate over the timed lyrics as that is likely the more sparse data
-         
-        # wat -> word and timing
-        lsb_index = 0
-
-        total_unmatched = 0
-
-        # Growing / Shrinking tolerance window works well with BLUR - Boys & Girls
-        min_mismatch_tolerance = 3
-        current_mismatch_tolerance = min_mismatch_tolerance
-
-        for wat_index, wat in enumerate(lyrics_time_aligned):
-
-            failed_to_match = False
-
-            match_span = min(len(lyrics_structured) - lsb_index, current_mismatch_tolerance)
-            for index_offset in range(match_span):
-
-                if debug_print:
-                    self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured, lsb_index, index_offset, current_mismatch_tolerance)
-                    input("Press Enter to continue...")
-
-                # Fix out of range...
-                lsb = lyrics_structured[lsb_index + index_offset]
-
-                #print(f"Matching {wat.word.lower()} against {lsb.word.lower()} ")
-
-                # Todo: Improve word-to-word comparisson 
-                if wat.word.lower() == lsb.word_alignment.lower():
-                    #lsb_mismatch_count = 0
-                    lyrics_structured[lsb_index + index_offset].time_start = wat.time_start
-                    lyrics_structured[lsb_index + index_offset].time_end = wat.time_end
-
-                    # If we find a 'later' match, we must move the lsb_index forward by the offset
-                    # otherwise, it'll keep falling behind
-                    lsb_index += index_offset
-                    
-                    break
-                else:
-                    #lsb_mismatch_count += 1
-                    horse = 456
-                
-                if index_offset == match_span-1:
-                    failed_to_match = True
-
-                #self._debug_print(lyrics_time_aligned, wat_index, lyrics_structured_better, lsb_index, index_offset, current_mismatch_tolerance)
-
-            if failed_to_match:
-                logging.debug(f"Failed to match a word: {wat.word:10} | wat_index: {wat_index:3} | lsb_index: {lsb_index:3}")
-                # Given that the timed lyrics are always expected to be more sparse, than
-                # the structured ones, if a match fails, it 'should' be ok to move the lsb_index
-                # ahead. See how we go re. this change.
-                #lsb_index += 1
-                current_mismatch_tolerance += 1
-                total_unmatched += 1
-            else:
-                current_mismatch_tolerance = max(min_mismatch_tolerance, current_mismatch_tolerance-1)
-                lsb_index += 1
-
-        num_time_aligned_lyrics = len(lyrics_time_aligned)
-        total_matched = num_time_aligned_lyrics - total_unmatched
-        matched_percentage = self._percentage(total_matched, num_time_aligned_lyrics)
-        logging.info(f"Successfully matched words: {matched_percentage:.2f}% ({total_matched} / {num_time_aligned_lyrics}) ")
-
-        return lyrics_structured
-
 
     
     def _verify_lyrics(self, lyrics_stuctured, lyrics_timing):
@@ -252,7 +150,7 @@ class LyricManager:
         return ' '.join(string.split())
 
 
-    def _create_audio_lyric_align_tasks_from_paths(self, paths_to_audio_files: List):
+    def _create_audio_lyric_align_tasks_from_paths(self, paths_to_audio_files: list):
         """ Turns a list of paths to audio files into AudioLyricAlignTask objects """
         lyric_align_tasks = []
 
@@ -336,16 +234,18 @@ class LyricManager:
         # TODO: Write intermediate lyric file on-disk for aligner tool to use
         #intermediate_lyric_file = "path"
 
-        time_aligned_lyrics = self.lyric_aligner.align_lyrics(
+        time_aligned_lyrics: list[WordAndTiming] = self.lyric_aligner.align_lyrics(
             lyric_align_task.path_to_audio_file,
             path_to_alignment_ready_file,
             use_preexisting=use_preexisting_files
         )
 
-        lyrics_structured_aligned = self._match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
+        lyrics_structured_aligned, match_result = self.lyric_matcher.match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
+        logging.info(f"Successfully matched words: {match_result.get_string()})")
 
-        # recordtype can't be auto-converted to json, so we must turn it into a dict
-        #lyrics_json = self._convert_lyric_recordtype_to_dict(lyrics_structured_aligned)
+        lyric_align_task.match_result = match_result
+
+        # For later Json output, we must convert the dataclasses to Python-native dicts
         lyric_align_task.lyrics_aligned = self.lyric_matcher.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
 
         return lyric_align_task
@@ -374,7 +274,7 @@ class LyricManager:
 
         logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 
-    def _print_lyric_validity(self, lyric_align_tasks: List[AudioLyricAlignTask]):
+    def _print_lyric_validity(self, lyric_align_tasks: list[AudioLyricAlignTask]):
         logging.info("**********************************************************************")
         logging.info("************************* Lyric Validity *****************************")
         for task in lyric_align_tasks:
@@ -382,7 +282,7 @@ class LyricManager:
 
     # TODO: Convert to dataclass and implement method chaining
     def fetch_and_align_lyrics(self,
-            path_to_audio:Path, 
+            paths_to_process:list[Path], 
             recursive=False, 
             destructive=False, 
             keep_lyrics=False, 
@@ -407,12 +307,15 @@ class LyricManager:
         if file_output_path:
             file_output_path.mkdir(exist_ok=True)
 
-        if path_to_audio.exists() == False:
-            logging.info(f"Path to parse audio '{path_to_audio}' not found. Exiting.")
-            return
+        paths_to_process_valid = []
+        for path in paths_to_process:
+            if not path.exists():
+                logging.info(f"Provided path to process '{path}' not found. Skipping it.")
+
+            paths_to_process_valid.append(path)
 
 
-        all_audio_files = self._get_all_audio_files(path_to_audio, recursive)
+        all_audio_files = self._get_audio_files_found_in_paths(paths_to_process, recursive)
 
         logging.info(f"Found {len(all_audio_files)} to process.")
 
@@ -441,6 +344,9 @@ class LyricManager:
             # For now we only keep (probably) valid lyrics
             tasks_with_lyrics_valid = [task for task in tasks_with_lyrics if task.lyric_validity == LyricValidity.Valid]
 
+            # Move to end
+            #self._print_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
+
             # Because lyric alignment is fairly time-consuming (~0.5 minute processing per 1 minute audio), we write the
             # results to disk in the same loop to ensure nothing is lost in case of unexpected errors.
             for task in tqdm.tqdm(tasks_with_lyrics_valid, desc="Align lyrics"):
@@ -448,5 +354,44 @@ class LyricManager:
 
                 self._write_aligned_lyrics_to_disk(lyric_align_task, file_output_path, export_readable_json)
 
+            self._print_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
+
+
+    def _print_aligned_lyrics_report(self, all_tasks: list[AudioLyricAlignTask], tasks_valid: list[AudioLyricAlignTask]):
+
+        
+        # ____ Put together report text
+        amount_tasks_total = len(all_tasks)
+        amount_tasks_valid = len(tasks_valid)
+
+        percent_valid = percentage(amount_tasks_valid, amount_tasks_total)
+
+
+        lines_to_write = []
+        lines_to_write.append("****** End of Work Report ******")
+        lines_to_write.append(f"****** Valid tasks ({amount_tasks_valid}) ******")
+
+        for task in tasks_valid:
+            lines_to_write.append(f"{task.song_name[0:50] : <50} | {task.match_result.get_string()}")
+
+        lines_to_write.append("")
+        lines_to_write.append(f"****** All tasks - Valid {percent_valid :.2f}% ({amount_tasks_valid} / {amount_tasks_total}) ******")
+
+        for task in all_tasks:
+            lines_to_write.append(f"{task.song_name[0:50] : <50} | {task.lyric_validity}")
+
+        text_to_write = "\n".join(lines_to_write)
+
+        # ____ Write report text to disk
+
+        path_to_this_file = Path(__file__).parent
+        path_to_reports_folder = path_to_this_file / "reports"
+        Path.mkdir(path_to_reports_folder, exist_ok=True)
+
+        now = datetime.now()
+        report_filename = now.strftime("%Y-%m-%d_%H:%M:%S Alignment Report.txt")
+        report_file = path_to_reports_folder / report_filename
+
+        report_file.write_text(text_to_write)
             
         end = 2

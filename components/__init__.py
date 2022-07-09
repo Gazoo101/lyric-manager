@@ -6,3 +6,4 @@ from .audio_lyric_align_task import AudioLyricAlignTask
 from .lyric_sanitizer import LyricSanitizer
 from .text_simplifier import simplify
 from .lyric_state import LyricValidity
+from .miscellaneous import percentage

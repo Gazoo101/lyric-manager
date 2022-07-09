@@ -81,6 +81,6 @@ Rename the provided `settings.yaml-example` file to `settings.yaml`, set the app
 Lyric Manager has a number of known limitations:
 
 - Lyric Manager expects a specific song filenaming convention is expected: "<artist> - <songname>.mp3"
-- Lyric Manager only supports a single lyric aligner (for now), i.e. NUSAutoLyrixAlign offline
+- Lyric Manager only supports a single lyric aligner (for now), i.e. NUSAutoLyrixAlign offline (found here: https://github.com/chitralekha18/AutoLyrixAlign)
     - In the meantime, you can use the online version of NUSAutoLyrixAlign (found here: https://autolyrixalign.hltnus.org/) and rename the output (for Audacity - selected in their online tool) to be the offline extension, e.g. `song.nusalaoffline`
 - Lyric Manager only supports fetching lyrics from one lyric database or a manually provided file

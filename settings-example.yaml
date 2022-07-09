@@ -35,8 +35,10 @@ general:
   export_readable_json: True
 
 data:
-  # Folder with music for LyricManager to parse
-  path_to_audio_files_to_process: ~/path/to/your/music
+  # Folders (with music) to process
+  paths_to_process:
+    - ~/path/to/your/music
+    - ~/another/path/to/music
 
   # Any folders added here will be excluded from processing. Mainly useful for recursive parsing.
   folders_to_exclude:

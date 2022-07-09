@@ -8,19 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Proper path check to NUSAutoLyrixAligner
 - Tons of type-hinting
+- Supports parsing multiple audio folders
 
 ### Changed
 - Updated and improved settings-example.yaml 
 - Added tqdm to requirements.txt
 - LyricManager / main.py re-factored for clarity and encapsulation
-- Re-factored LyricAlignerNUSAutoLyrixAlignOffline for better encapsulation, clarity and instructions for proper installation/use of external AudoLyrixAlign software
+- Re-factored LyricAlignerNUSAutoLyrixAlignOffline for better encapsulation, clarity and instructions for proper
+installation/use of external AudoLyrixAlign software
 - Fixed out-dated and incorrectly type hinted entries in AudioLyricAlignTask
 - YamlParser now converts paths into Pathlib.Path objects via function-based parsing
 - Fixed yaml parser bug causing empty entries from getting turned into Path's pointing to the LyricManager cwd
 - Removed 'None' which turns into a string from settings_example.yaml
 - Added '' to None conversion in Enum conversion code
-- Removed Genius as a 'default on' lyric source, as it'd necessitate a token, and the default behaviour should be as uncomplicated as possible.
-- .gitignore now ignores fetch_history.genius and output folder
+- Removed Genius as a 'default on' lyric source, as it'd necessitate a token, and the default behaviour should be as
+uncomplicated as possible.
+- .gitignore now ignores fetch_history.genius, output*/ folders, and reports folder
 
 ### Removed
 

@@ -31,7 +31,7 @@ class YamlParser():
         self.parsing_funcs['lyric_fetchers'] = partial(self._strings_to_enum, lyric_fetcher.LyricFetcherType)
         self.parsing_funcs['lyric_aligner'] = partial(self._strings_to_enum, lyric_aligner.LyricAlignerType)
         self.parsing_funcs['file_output_location'] = partial(self._strings_to_enum, FileOutputLocation)
-        self.parsing_funcs['path_to_audio_files_to_process'] = partial(self._strings_to_paths)
+        self.parsing_funcs['paths_to_process'] = partial(self._list_of_strings_to_paths)
         self.parsing_funcs['path_to_output_files'] = partial(self._strings_to_paths)
         self.parsing_funcs['path_to_NUSAutoLyrixAlignOffline'] = partial(self._strings_to_paths)
         self.parsing_funcs['path_to_NUSAutoLyrixAlign_working_directory'] = partial(self._strings_to_paths, check_spaces=True)
@@ -105,6 +105,19 @@ class YamlParser():
             sys.exit(1)
 
         return enum_object
+    
+
+    def _list_of_strings_to_paths(self, input_string: str, check_spaces: bool = False):
+        if isinstance(input_string, list):
+            return_list = []
+
+            for elem in input_string:
+                return_list.append(self._strings_to_paths(elem, check_spaces))
+
+            return return_list
+        
+        return self._strings_to_paths(input_string, check_spaces)
+
 
     def _strings_to_paths(self, input_string: str, check_spaces: bool = False):
         """ Turns strings into Pathlib.Path objects, handles '~' symboles, resolves relative paths. """
