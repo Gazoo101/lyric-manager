@@ -40,7 +40,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
     
     """
 
-    def __init__(self, token, path_to_output_dir:Path = None):
+    def __init__(self, token, path_to_data: Path, path_to_output_dir:Path = None):
         super().__init__(".genius", path_to_output_dir)
         self.token = token
         self.genius = lyricsgenius.Genius(self.token)
@@ -53,7 +53,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
         self.random_wait_lower = 3.0 # seconds
         self.random_wait_upper = 10.0 # seconds
 
-        self.path_to_fetch_history = Path("fetch_history.genius")
+        self.path_to_fetch_history = path_to_data / "fetch_history.genius"
         self.fetch_history = self._init_fetch_history()
 
 

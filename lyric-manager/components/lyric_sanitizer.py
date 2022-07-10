@@ -1,21 +1,12 @@
 # Python
-import os
-from enum import Enum
-from pathlib import Path
-import json
-import logging
-#from posix import POSIX_FADV_NOREUSE
 import re
-# from collections import namedtuple
+
 
 # 3rd Party
-from tqdm.contrib.logging import logging_redirect_tqdm
-import tqdm
+
 
 # 1st Party
-from components import LyricMatcher
-from components import FileOutputLocation
-from components import AudioLyricAlignTask
+
 
 
 class LyricSanitizer():
@@ -26,7 +17,9 @@ class LyricSanitizer():
     
     """
     def __init__(self) -> None:
-        pass
+        reg_exp_find_lyric_multiplications = r"[(\[]\d+x[)\]]"
+        self.re_comp_find_lyric_multiplications = re.compile(reg_exp_find_lyric_multiplications)
+
 
     def remove_leading_title(self, song_name:str, lyrics:str):
         """ Removes the leading '<song name> Lyrics' text piece. """
@@ -54,6 +47,7 @@ class LyricSanitizer():
             return lyrics[length_to_chop:]
         
         return lyrics
+
 
     def remove_embed_at_end(self, lyrics:str):
         sanitized = re.sub(r"\d*Embed$", '', lyrics)
@@ -115,3 +109,12 @@ class LyricSanitizer():
             lyrics_cleaned.append(lyric.replace("’", "'")) # Annoying almost-apostrophe
 
         return lyrics_cleaned
+
+
+    def contains_multipliers(self, lyrics: str):
+        """ Tries to locate instances of (4x) or [10x] etc. """
+
+        if self.re_comp_find_lyric_multiplications.search(lyrics):
+            return True
+        
+        return False

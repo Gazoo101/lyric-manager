@@ -76,11 +76,34 @@ Install required python packages using `requirements.txt`.
 
 Rename the provided `settings.yaml-example` file to `settings.yaml`, set the appropriate settings, and execute main.py.
 
+# Project Files Layout
+
+```
+lyric-manager/
+│
+├── data/
+│   ├── fetch_history.genius    - Record of time-out's or bad requests.
+│   ├── lyric_manager.log       - Log output, generated at run-time.
+│   ├── settings-example.yaml   - Settings example to copy and rename to settings.yaml
+│   └── settings.yaml           - Your specific settings to run Lyric Manager.
+│
+├── lyric-manager/
+│   └── lyric-manager source files
+│
+├── output/
+│   ├── alignment_related/
+│   │   └── Various files generated throughout the lyric alignment process
+│   ├── reports/
+│   │   ├── 2022-07-10_15:14:01 Alignment Report.txt    - Results of alignment process executed at this date/time
+│   │   ├── ...
+│   │   └── 2022-07-10_15:14:01 Alignment Report.txt    - Results of alignment process executed at this date/time
+```
+
 # Limitations
 
 Lyric Manager has a number of known limitations:
 
-- Lyric Manager expects a specific song filenaming convention is expected: "<artist> - <songname>.mp3"
+- Lyric Manager expects a specific song filenaming convention is expected: "<artist> - <songname>.mp3" (or other audio extension)
 - Lyric Manager only supports a single lyric aligner (for now), i.e. NUSAutoLyrixAlign offline (found here: https://github.com/chitralekha18/AutoLyrixAlign)
     - In the meantime, you can use the online version of NUSAutoLyrixAlign (found here: https://autolyrixalign.hltnus.org/) and rename the output (for Audacity - selected in their online tool) to be the offline extension, e.g. `song.nusalaoffline`
 - Lyric Manager only supports fetching lyrics from one lyric database or a manually provided file

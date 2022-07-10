@@ -29,7 +29,11 @@ from lyric_manager import LyricManager
 
 from components import YamlParser
 
-def create_lyric_fetchers(lyric_fetcher_types, genius_token, path_to_output_dir=None):
+def create_lyric_fetchers(
+    lyric_fetcher_types,
+    genius_token: str,
+    path_to_data_dir: Path,
+    path_to_output_dir: Path=None):
     all_lyric_fetchers = []
 
     for type in lyric_fetcher_types:
@@ -42,7 +46,7 @@ def create_lyric_fetchers(lyric_fetcher_types, genius_token, path_to_output_dir=
             lyric_fetcher = LyricFetcherLocalFile(path_to_output_dir)
         elif type == LyricFetcherType.Genius:
             logging.info("Adding Lyric Fetcher - Genius Database")
-            lyric_fetcher = LyricFetcherGenius(genius_token, path_to_output_dir)
+            lyric_fetcher = LyricFetcherGenius(genius_token, path_to_data, path_to_output_dir)
         
         all_lyric_fetchers.append(lyric_fetcher)
     
@@ -97,11 +101,12 @@ def _command_line_arguments():
 
 
 if __name__ == '__main__':
-    path_to_application = Path(__file__).parent
+    path_to_script_main = Path(__file__).resolve().parent
+    path_to_data = path_to_script_main.parent / "data"
 
     # .log and .yaml are expected to be in the same folder as the main.py
-    path_to_log = path_to_application / "lyric_manager.log"
-    path_to_settings = path_to_application / "settings.yaml"
+    path_to_log = path_to_data / "lyric_manager.log"
+    path_to_settings = path_to_data / "settings.yaml"
 
     format_time_level_message = "%(asctime)s [%(levelname)s] %(message)s" # Original
     format_level_file_func_message = "[%(levelname)s][%(filename)s - %(funcName)25s() ] %(message)s"
@@ -124,6 +129,7 @@ if __name__ == '__main__':
     all_lyric_fetchers = create_lyric_fetchers(
         parsed_settings['general']['lyric_fetchers'],
         parsed_settings['general']['lyric_fetcher_genius_token'],
+        path_to_data,
         parsed_settings['data']['path_to_output_files']
     )
 

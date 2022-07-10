@@ -1,9 +1,9 @@
 # Hand-crafted additions
 .vscode/*
-settings.yaml
-fetch_history.genius
-output*/*
-reports/*
+data/settings.yaml
+data/lyric_manager.log
+data/fetch_history.genius
+output/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

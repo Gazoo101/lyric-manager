@@ -13,6 +13,7 @@ import tqdm
 from components import LyricMatcher
 from components import LyricValidity
 from components import LyricExpander
+from components import LyricSanitizer
 
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
@@ -40,9 +41,13 @@ class LyricManager:
     """
 
     def __init__(self, all_lyric_fetchers, lyric_aligner):
-
         self.all_lyric_fetchers = all_lyric_fetchers
         self.lyric_aligner = lyric_aligner
+
+        self.path_to_lyric_manager_script = Path(__file__).resolve().parent
+        self.path_to_data = self.path_to_lyric_manager_script.parent / "data"
+        self.path_to_output = self.path_to_lyric_manager_script.parent / "output"
+        self.path_to_reports = self.path_to_output / "reports"
 
         # The version of aligned lyrics json the LyricManager will export to.
         # A simple, but imperfect, approach to ensure readers of the lyric data
@@ -56,9 +61,12 @@ class LyricManager:
         self.lyric_matcher = LyricMatcher(self.json_schema_version)
         self.lyric_expander = LyricExpander()
 
+        self.lyric_sanitizer = LyricSanitizer()  # Currently just used to detect repetitions to then be manually edited
+
         self.extension_alignment_ready = ".alignment_ready"
 
         self.recognized_audio_filename_extensions = ["mp3", "wav", "aiff"]
+
 
     def _valid_audio_extension(self, filename: str):
         for extension in self.recognized_audio_filename_extensions:
@@ -91,6 +99,7 @@ class LyricManager:
 
         return all_audio_files
 
+
     def _debug_print(self, lyrics_timing, wat_index, lyrics_structured_better, lsb_index, index_offset, mismatch_tolerance):
         ''' Prints time aligned and structured lyrics on to console for easy debugging.
 
@@ -121,30 +130,30 @@ class LyricManager:
         print(f"Structured:  [ {sd}")
 
     
-    def _verify_lyrics(self, lyrics_stuctured, lyrics_timing):
-        '''
+    # def _verify_lyrics(self, lyrics_stuctured, lyrics_timing):
+    #     '''
 
-        It's unknown how broken or un-matched lyrics are going to be, so for now,
-        let's just verify that every single word has timing.
+    #     It's unknown how broken or un-matched lyrics are going to be, so for now,
+    #     let's just verify that every single word has timing.
         
-        '''
-        lt_iter = iter(lyrics_timing)
+    #     '''
+    #     lt_iter = iter(lyrics_timing)
 
-        for line_index, lyric_line in enumerate(lyrics_stuctured):
+    #     for line_index, lyric_line in enumerate(lyrics_stuctured):
 
-            lyric_line_parts = lyric_line.split(' ')
+    #         lyric_line_parts = lyric_line.split(' ')
 
-            for word_index, word in enumerate(lyric_line_parts):
+    #         for word_index, word in enumerate(lyric_line_parts):
 
-                lyric_timed = next(lt_iter)
+    #             lyric_timed = next(lt_iter)
 
-                word1 = lyric_timed.word.lower()
-                word2 = word.lower()
+    #             word1 = lyric_timed.word.lower()
+    #             word2 = word.lower()
 
-                if word1 != word2:
-                    print(f"Mismatch on Line {line_index}, Word {word_index}: {lyric_line}")
-                    print(f"Word from original lyrics: {word2} | Timed Lyric: {word1}")
-                    # Lyric doesn't match :/
+    #             if word1 != word2:
+    #                 print(f"Mismatch on Line {line_index}, Word {word_index}: {lyric_line}")
+    #                 print(f"Word from original lyrics: {word2} | Timed Lyric: {word1}")
+    #                 # Lyric doesn't match :/
 
 
     def _string_list_to_string(self, string_list):
@@ -198,6 +207,9 @@ class LyricManager:
         if lyric_validity is not LyricValidity.Valid:
             logging.warning(f"Non-valid lyrics found for: {lyric_align_task.path_to_audio_file}. Will not sanitize.")
             return lyric_align_task
+
+        # We must detect multipliers before sanitizing the lyrics...
+        lyric_align_task.detected_multiplier = self.lyric_sanitizer.contains_multipliers(lyric_align_task.lyric_text_raw)
 
         lyric_align_task.lyric_text_sanitized = lyric_fetcher.sanitize_raw_lyrics(lyric_align_task)
 
@@ -279,11 +291,11 @@ class LyricManager:
 
         logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 
-    def _print_lyric_validity(self, lyric_align_tasks: list[AudioLyricAlignTask]):
-        logging.info("**********************************************************************")
-        logging.info("************************* Lyric Validity *****************************")
-        for task in lyric_align_tasks:
-            logging.info(f"{task.song_name[0:50] : <50} | {task.lyric_validity}")
+    # def _print_lyric_validity(self, lyric_align_tasks: list[AudioLyricAlignTask]):
+    #     logging.info("**********************************************************************")
+    #     logging.info("************************* Lyric Validity *****************************")
+    #     for task in lyric_align_tasks:
+    #         logging.info(f"{task.song_name[0:50] : <50} | {task.lyric_validity}")
 
     # TODO: Convert to dataclass and implement method chaining
     def fetch_and_align_lyrics(self,
@@ -343,8 +355,8 @@ class LyricManager:
                 task_with_lyrics = self._fetch_and_sanitize_lyrics(task)
                 tasks_with_lyrics.append(task_with_lyrics)
 
-            # Report on lyric validity
-            self._print_lyric_validity(tasks_with_lyrics)
+            # Report on lyric validity - Superseded by 
+            #self._print_lyric_validity(tasks_with_lyrics)
 
             # For now we only keep (probably) valid lyrics
             tasks_with_lyrics_valid = [task for task in tasks_with_lyrics if task.lyric_validity == LyricValidity.Valid]
@@ -409,20 +421,18 @@ class LyricManager:
         lines_to_write.append(f"============------------ All songs ( {amount_tasks_total} ) ------------============")
 
         for task in all_tasks:
-            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.lyric_validity}")
+            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.lyric_validity} | Mult: {task.detected_multiplier}")
 
         text_to_write = "\n".join(lines_to_write)
 
 
         # _________________________________ ____ _ _ _
         # ___ Step 3: Write the report to a file
-        path_to_this_file = Path(__file__).parent
-        path_to_reports_folder = path_to_this_file / "reports"
-        Path.mkdir(path_to_reports_folder, exist_ok=True)
+        Path.mkdir(self.path_to_reports, exist_ok=True)
 
         now = datetime.now()
         report_filename = now.strftime("%Y-%m-%d_%H:%M:%S Alignment Report.txt")
-        report_file = path_to_reports_folder / report_filename
+        report_file = self.path_to_reports / report_filename
 
         report_file.write_text(text_to_write)
             
