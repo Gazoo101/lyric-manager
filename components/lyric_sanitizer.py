@@ -83,7 +83,7 @@ class LyricSanitizer():
 
             sanitized_lyric_lines.append(lyric_line)
 
-        # Removes empty lines
+        # Remove empty lines
         non_empty_lyric_lines = [lyric_line for lyric_line in sanitized_lyric_lines if lyric_line]
 
 

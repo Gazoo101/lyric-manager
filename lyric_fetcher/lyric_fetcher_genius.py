@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from requests.exceptions import Timeout
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, DefaultDict, Tuple
+from typing import DefaultDict, Tuple
 from collections import defaultdict
 
 # 3rd Party
@@ -21,7 +21,6 @@ from .lyric_fetcher_interface import LyricFetcherInterface
 from components import AudioLyricAlignTask
 from components import LyricValidity
 from components import text_simplifier
-from components import LyricSanitizer
 
 # FetchErrors is a @dataclass so we can construct defaultdict(FetchErrors) which can be serialized using jsons.
 # defaultdict(defaultdict(Enum)) cannot be serialized in using jsons.
@@ -45,9 +44,6 @@ class LyricFetcherGenius(LyricFetcherInterface):
         super().__init__(".genius", path_to_output_dir)
         self.token = token
         self.genius = lyricsgenius.Genius(self.token)
-
-        # TODO: Consider elevating this into interface...
-        self.lyric_sanitizer = LyricSanitizer()
 
         # In an effort to not overload Genius' servers, we insert some self-rate limiting
         self.rate_limit = True

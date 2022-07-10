@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Proper path check to NUSAutoLyrixAligner
 - Tons of type-hinting
 - Supports parsing multiple audio folders
+- Support for more extensions .wav and .aiff (previously just .mp3)
 
 ### Changed
 - Updated and improved settings-example.yaml 

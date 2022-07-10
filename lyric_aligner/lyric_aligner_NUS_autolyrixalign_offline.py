@@ -158,11 +158,6 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
             return []
 
-        # # TODO: Support raw .wav if there's enough call for it.
-        # if path_to_audio_file.suffix != ".mp3":
-        #     logging.info("Lyric aligner given non .mp3 file, skipping.")
-        #     return []
-
 
         datetime_before_alignment = datetime.now()
         path_temp_file_lyric_aligned = self._align_lyrics_internal(path_to_audio_file, path_to_lyric_input)
@@ -212,6 +207,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         process_executed = " ".join(process)
 
         # logging.info() -- Enter details of audio file (original name here)
+        logging.info(f"Processing Audio: {path_to_audio_file.name}")
         logging.info(f"Executing command: {process_executed}")
         subprocess.run(process, cwd=self.path_aligner)
 

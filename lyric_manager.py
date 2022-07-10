@@ -11,13 +11,15 @@ import tqdm
 
 # 1st Party
 from components import LyricMatcher
+from components import LyricValidity
+from components import LyricExpander
+
 from components import FileOutputLocation
 from components import AudioLyricAlignTask
-from components import LyricValidity
-from components import percentage
+
+from components import get_percentage_and_amount_string
 from lyric_aligner import WordAndTiming
 from lyric_fetcher import LyricFetcherInterface
-from components.lyric_matcher import MatchResult
 
 
 
@@ -52,6 +54,7 @@ class LyricManager:
         self.json_schema_version = "2.0.0"
 
         self.lyric_matcher = LyricMatcher(self.json_schema_version)
+        self.lyric_expander = LyricExpander()
 
         self.extension_alignment_ready = ".alignment_ready"
 
@@ -198,6 +201,8 @@ class LyricManager:
 
         lyric_align_task.lyric_text_sanitized = lyric_fetcher.sanitize_raw_lyrics(lyric_align_task)
 
+        lyric_align_task.lyric_text_expanded = self.lyric_expander.expand_lyrics(lyric_align_task)
+
         return lyric_align_task
 
     
@@ -213,7 +218,7 @@ class LyricManager:
         """
 
         # Most of this is to make the task of matching timing back to words a lot easier.
-        alignment_lyrics = self.lyric_matcher.convert_lyrics_string_to_match_lyrics(lyric_align_task.lyric_text_sanitized)
+        alignment_lyrics = self.lyric_matcher.convert_lyrics_string_to_match_lyrics(lyric_align_task.lyric_text_expanded)
 
         lyrics_alignment_ready = []
 
@@ -354,36 +359,63 @@ class LyricManager:
 
                 self._write_aligned_lyrics_to_disk(lyric_align_task, file_output_path, export_readable_json)
 
-            self._print_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
+            self._create_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
 
 
-    def _print_aligned_lyrics_report(self, all_tasks: list[AudioLyricAlignTask], tasks_valid: list[AudioLyricAlignTask]):
+    def _create_aligned_lyrics_report(self, all_tasks: list[AudioLyricAlignTask], tasks_valid: list[AudioLyricAlignTask]):
+        """ Creates a text with a lyric alignment report into the /reports folder. """
 
-        
-        # ____ Put together report text
+        # Three-Step aligned lyrics report creation:
+        # 1. Calculate all the metrics that go into the report.
+        # 2. Format all the text to go into the report.
+        # 3. Write the report to a file
+
+        # _________________________________ ____ _ _ _
+        # ___ Step 1: Calculate all metrics
         amount_tasks_total = len(all_tasks)
         amount_tasks_valid = len(tasks_valid)
 
-        percent_valid = percentage(amount_tasks_valid, amount_tasks_total)
+        stat_valid_out_of_total = get_percentage_and_amount_string(amount_tasks_valid, amount_tasks_total)
+
+        songs_match_rate_100 = [task for task in tasks_valid if task.match_result.match_percentage == 100.0]
+        songs_match_rate_90 = [task for task in tasks_valid if task.match_result.match_percentage >= 90.0]
+
+        amount_songs_match_rate_100 = len(songs_match_rate_100)
+        amount_songs_match_rate_90 = len(songs_match_rate_90)
+
+        stat_match_rate_100_out_of_valid = get_percentage_and_amount_string(amount_songs_match_rate_100, amount_tasks_valid)
+        stat_match_rate_90_out_of_valid = get_percentage_and_amount_string(amount_songs_match_rate_90, amount_tasks_valid)
 
 
+        # _________________________________ ____ _ _ _
+        # ___ Step 2: Format the report text
         lines_to_write = []
-        lines_to_write.append("****** End of Work Report ******")
-        lines_to_write.append(f"****** Valid tasks ({amount_tasks_valid}) ******")
-
-        for task in tasks_valid:
-            lines_to_write.append(f"{task.song_name[0:50] : <50} | {task.match_result.get_string()}")
+        lines_to_write.append("============------------ Executive Summary ------------============")
+        lines_to_write.append(f"* Songs with validated lyrics       {stat_valid_out_of_total:>30}")
+        lines_to_write.append(f"* Songs with 100% matched lyrics    {stat_match_rate_100_out_of_valid:>30}")
+        lines_to_write.append(f"* Songs with >90% matched lyrics    {stat_match_rate_90_out_of_valid:>30}")
 
         lines_to_write.append("")
-        lines_to_write.append(f"****** All tasks - Valid {percent_valid :.2f}% ({amount_tasks_valid} / {amount_tasks_total}) ******")
+        lines_to_write.append("============------------ - - - - - - - - - ------------============")
+        lines_to_write.append("")
+
+        lines_to_write.append("")
+        lines_to_write.append(f"============------------ Songs with validated Lyrics {stat_valid_out_of_total} ------------============")
+
+        for task in tasks_valid:
+            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.match_result.get_string()}")
+
+        lines_to_write.append("")
+        lines_to_write.append(f"============------------ All songs ( {amount_tasks_total} ) ------------============")
 
         for task in all_tasks:
-            lines_to_write.append(f"{task.song_name[0:50] : <50} | {task.lyric_validity}")
+            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.lyric_validity}")
 
         text_to_write = "\n".join(lines_to_write)
 
-        # ____ Write report text to disk
 
+        # _________________________________ ____ _ _ _
+        # ___ Step 3: Write the report to a file
         path_to_this_file = Path(__file__).parent
         path_to_reports_folder = path_to_this_file / "reports"
         Path.mkdir(path_to_reports_folder, exist_ok=True)

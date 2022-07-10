@@ -2,13 +2,14 @@
 import re
 import logging
 from dataclasses import dataclass
-from typing import List
+
 
 # 3rd Party
 
 
 # 1st Party
 from .miscellaneous import percentage
+from .miscellaneous import get_percentage_and_amount_string
 from lyric_aligner import WordAndTiming
 
 
@@ -41,7 +42,7 @@ class MatchResult:
         self.match_percentage = percentage(self.words_matched, self.words_total)
 
     def get_string(self):
-        return f"{self.match_percentage :.2f}% ({self.words_matched} / {self.words_total})"
+        return get_percentage_and_amount_string(self.words_matched, self.words_total)
 
 
 
@@ -88,7 +89,7 @@ class LyricMatcher():
         self.json_schema_version = json_schema_version
 
 
-    def convert_lyrics_string_to_match_lyrics(self, lyrics: List[str]):
+    def convert_lyrics_string_to_match_lyrics(self, lyrics: list[str]):
         '''
 
         Args:
@@ -97,7 +98,7 @@ class LyricMatcher():
         Returns:
             A list of Alignment
         '''
-        all_match_lyrics:List[MatchLyric] = self._split_lyrics_raw_spoken_segments(lyrics)
+        all_match_lyrics: list[MatchLyric] = self._split_lyrics_raw_spoken_segments(lyrics)
 
         for match_lyric in all_match_lyrics:
             word_single, word_alignment_ready = self._create_standalone_and_alignment_ready_word(match_lyric)
@@ -111,7 +112,7 @@ class LyricMatcher():
         return all_match_lyrics
     
 
-    def _split_lyrics_raw_spoken_segments(self, lyrics: List[str]):
+    def _split_lyrics_raw_spoken_segments(self, lyrics: list[str]):
         """ Splits raw text lyrics into spoken segments, contained in AlignmentLyrics.
 
         Spoken segments are split based on spaces and hyphens. This approach was primarily
@@ -316,7 +317,7 @@ class LyricMatcher():
     def match_aligned_lyrics_with_structured_lyrics(self,
         lyrics_time_aligned: list[WordAndTiming],
         lyrics_structured: list[MatchLyric],
-        debug_print=False) -> List[MatchLyric]:
+        debug_print=False) -> list[MatchLyric]:
         """ Matches time aligned lyrics with (sentance) structured lyrics.
 
         Aligned lyrics and structured lyrics rarely match exactly. This function uses a moving

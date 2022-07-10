@@ -9,6 +9,7 @@ from typing import Tuple, List
 
 # 1st Party
 from components import LyricValidity
+from components import LyricSanitizer
 
 class LyricFetcherInterface(ABC):
 
@@ -16,10 +17,14 @@ class LyricFetcherInterface(ABC):
         self.file_extension = file_extension
         self.path_to_output_dir = path_to_output_dir
 
+        self.lyric_sanitizer = LyricSanitizer()
+
+
     @abstractmethod
     def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> Tuple[str, LyricValidity]:
         """ Returns lyrics and (estimated) validity for a given AudioLyricAlignTask. """
         raise NotImplementedError
+
 
     @abstractmethod
     def sanitize_raw_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> List[str]:
