@@ -1,4 +1,5 @@
 # Python
+import os
 import re
 import logging
 from dataclasses import dataclass
@@ -435,3 +436,33 @@ class LyricMatcher():
         match_result = MatchResult(num_time_aligned_lyrics, total_matched)
 
         return lyrics_structured, match_result
+
+
+    def _debug_print(self, lyrics_timing, wat_index, lyrics_structured_better, lsb_index, index_offset, mismatch_tolerance):
+        ''' Prints time aligned and structured lyrics on to console for easy debugging.
+
+        Example:
+            -- Lyric Matching --
+            Time aligned:  >STREETS< LIKE A JUNGLE SO CALL THE POLICE FOLLOWING THE HERD DOWN
+            Structured:  [ >Streets< like a ] jungle So call the police Following the herd Down
+        '''
+        display_range = 12  # How large a range to 
+        os.system('cls')
+
+        lyrics_timing_display = lyrics_timing[wat_index:wat_index+display_range]
+        words_timing = [x.word for x in lyrics_timing_display]
+
+        lyrics_structured_better_display = lyrics_structured_better[lsb_index:lsb_index+display_range]
+        words_structure = [x.word_alignment for x in lyrics_structured_better_display]
+
+        # TODO: Fix case index_offset > display_range
+        words_timing[0] = f">{words_timing[0]}<"
+        words_structure[index_offset] = f">{words_structure[index_offset]}<"
+        words_structure.insert(mismatch_tolerance, "]")
+        
+        td = " ".join(words_timing)
+        sd = " ".join(words_structure)
+
+        print("-- Lyric Matching --")
+        print(f"Time aligned:  {td}")
+        print(f"Structured:  [ {sd}")
