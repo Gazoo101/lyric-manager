@@ -10,10 +10,12 @@ from typing import Tuple, List
 # 1st Party
 from components import LyricValidity
 from components import LyricSanitizer
+from .lyric_fetcher_type import LyricFetcherType
 
 class LyricFetcherInterface(ABC):
 
-    def __init__(self, file_extension: str, path_to_output_dir: Path=None):
+    def __init__(self, type: LyricFetcherType, file_extension: str, path_to_output_dir: Path=None):
+        self.type = type
         self.file_extension = file_extension
         self.path_to_output_dir = path_to_output_dir
 

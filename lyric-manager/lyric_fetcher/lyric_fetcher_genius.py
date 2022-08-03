@@ -18,6 +18,7 @@ import jsons
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
+from .lyric_fetcher_type import LyricFetcherType
 from components import AudioLyricAlignTask
 from components import LyricValidity
 from components import text_simplifier
@@ -41,7 +42,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
     """
 
     def __init__(self, token, path_to_data: Path, path_to_output_dir:Path = None):
-        super().__init__(".genius", path_to_output_dir)
+        super().__init__(LyricFetcherType.Genius, ".genius", path_to_output_dir)
         self.token = token
         self.genius = lyricsgenius.Genius(self.token)
 

@@ -99,32 +99,6 @@ class LyricManager:
 
         return all_audio_files
 
-    
-    # def _verify_lyrics(self, lyrics_stuctured, lyrics_timing):
-    #     '''
-
-    #     It's unknown how broken or un-matched lyrics are going to be, so for now,
-    #     let's just verify that every single word has timing.
-        
-    #     '''
-    #     lt_iter = iter(lyrics_timing)
-
-    #     for line_index, lyric_line in enumerate(lyrics_stuctured):
-
-    #         lyric_line_parts = lyric_line.split(' ')
-
-    #         for word_index, word in enumerate(lyric_line_parts):
-
-    #             lyric_timed = next(lt_iter)
-
-    #             word1 = lyric_timed.word.lower()
-    #             word2 = word.lower()
-
-    #             if word1 != word2:
-    #                 print(f"Mismatch on Line {line_index}, Word {word_index}: {lyric_line}")
-    #                 print(f"Word from original lyrics: {word2} | Timed Lyric: {word1}")
-    #                 # Lyric doesn't match :/
-
 
     def _string_list_to_string(self, string_list):
         ''' Converts a list of strings into a single string without double spaces. '''
@@ -157,11 +131,13 @@ class LyricManager:
         lyric_fetcher: LyricFetcherInterface
         lyric_text_raw: str
         lyric_validity: LyricValidity
+        lyric_source = None
         for lyric_fetcher in self.all_lyric_fetchers:
 
             # Fetcher currently writes previously fetched copies to disk. This should perhaps
             # be elevated/exposed to this level.
             lyric_text_raw, lyric_validity = lyric_fetcher.fetch_lyrics(lyric_align_task)
+            lyric_source = lyric_fetcher.type
 
             # Source of lyrics found
             if lyric_text_raw:
@@ -173,6 +149,7 @@ class LyricManager:
         
         lyric_align_task.lyric_text_raw = lyric_text_raw
         lyric_align_task.lyric_validity = lyric_validity
+        lyric_align_task.lyric_source = lyric_source
 
         if lyric_validity is not LyricValidity.Valid:
             logging.warning(f"Non-valid lyrics found for: {lyric_align_task.path_to_audio_file}. Will not sanitize.")
@@ -367,6 +344,9 @@ class LyricManager:
 
         stat_match_rate_100_out_of_valid = get_percentage_and_amount_string(amount_songs_match_rate_100, amount_tasks_valid)
         stat_match_rate_90_out_of_valid = get_percentage_and_amount_string(amount_songs_match_rate_90, amount_tasks_valid)
+
+        # Sources
+
 
 
         # _________________________________ ____ _ _ _

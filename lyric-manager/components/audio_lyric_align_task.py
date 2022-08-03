@@ -1,6 +1,8 @@
 # Python
 from dataclasses import dataclass, field
 from pathlib import Path
+import sys
+sys.path.append("..") # Haxx to access LyricFetcherType
 
 # 3rd Party
 
@@ -8,6 +10,7 @@ from pathlib import Path
 # 1st Party
 from .lyric_state import LyricValidity
 from .lyric_matcher import MatchResult
+from lyric_fetcher import LyricFetcherType
 
 # TODO: Explain the 3 phases the text goes through
 
@@ -25,6 +28,9 @@ class AudioLyricAlignTask:
     lyric_text_sanitized: list[str] = field(default_factory=list)   # Individual lines of lyrics, used for re-assembling the json/timing .aligned_lyrics
     lyric_text_expanded:  list[str] = field(default_factory=list)   # Detected and replaced {xxxx|4} with xxxx xxxx xxxx xxxx
     lyric_text_alignment_ready: str = ""                            # Lyric text more suitable for NUSAutoAlignLyrix
+
+    # Turn into Enum
+    lyric_source: LyricFetcherType  = LyricFetcherType.Disabled
 
     # Whether [8x], [16x], (4x) or (10x) is in the raw lyrics
     detected_multiplier: bool       = False

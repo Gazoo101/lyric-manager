@@ -7,13 +7,14 @@ from typing import Tuple
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
+from .lyric_fetcher_type import LyricFetcherType
 from components import AudioLyricAlignTask
 from components import LyricValidity
 
 class LyricFetcherLocalFile(LyricFetcherInterface):
 
     def __init__(self, path_to_output_dir:Path = None):
-        super().__init__(".txt", path_to_output_dir)
+        super().__init__(LyricFetcherType.LocalFile, ".txt", path_to_output_dir)
 
 
     def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> Tuple[str, LyricValidity]:
