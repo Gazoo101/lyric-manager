@@ -9,56 +9,112 @@ from .lyric.fetchers import LyricFetcherType
 from .lyric.aligners import LyricAlignerType
 
 class FileOutputLocation(Enum):
+    Disabled = auto()
     NextToAudioFile = auto()
     SeparateDirectory = auto()
 
+class AlignedLyricsOutputMode(Enum):
+    Readable = auto()
+    Compact = auto()
+
+# @dataclass
+# class ConfigGeneral():
+#     lyric_fetchers: List[LyricFetcherType] = MISSING
+
+#     lyric_fetcher_genius_token: Optional[str] = ""
+
+#     lyric_aligner: LyricAlignerType = LyricAlignerType.Disabled
+
+#     path_to_NUSAutoLyrixAlign_working_directory: Optional[Path] = field(default_factory=Path)
+
+#     path_to_NUSAutoLyrixAlignOffline: Path = field(default_factory=Path)
+
+#     export_readable_json: bool = True
+
+
+# @dataclass
+# class ConfigData():
+#     paths_to_audio_files_to_process: List[Path] = field(default_factory=list)
+
+#     folders_to_exclude: Optional[List] = field(default_factory=list)
+
+#     recursively_parse_audio_file_path: bool = False
+
+#     overwrite_existing_generated_files: bool = True
+
+#     # TODO: This name REALLY needs to change, to easily confused with the setting below
+#     file_output_location: FileOutputLocation = FileOutputLocation.SeparateDirectory
+
+#     path_to_output_files: Path = field(default_factory=Path)
+
+#     # TODO: Turn this into Enum, as we'll likely want fairly varied behavior for using pre-existing
+#     # or getting new files in for various situations.
+#     use_preexisting_files: bool = True
+
+#     # In case we download them from some place (like genius)
+#     keep_fetched_lyric_files: bool = True
+
+
+# @dataclass
+# class Config():
+#     general: ConfigGeneral = field(default_factory=ConfigGeneral)
+
+#     data: ConfigData = field(default_factory=ConfigData)
+
+    
 @dataclass
-class ConfigGeneral():
-    lyric_fetchers: List[LyricFetcherType] = MISSING
+class SettingsLyricFetching():
+    sources: List[LyricFetcherType] = MISSING
 
-    lyric_fetcher_genius_token: str = ""
-
-    lyric_aligner: LyricAlignerType = LyricAlignerType.Disabled
-
-    path_to_NUSAutoLyrixAlign_working_directory: Path = field(default_factory=Path)
-
-    path_to_NUSAutoLyrixAlignOffline: Path = field(default_factory=Path)
-
-    export_readable_json: bool = True
-
+    genius_token: Optional[str] = ""
 
 @dataclass
-class ConfigData():
-    paths_to_audio_files_to_process: List[Path] = field(default_factory=list)
+class SettingsLyricAlignment():
+    method: LyricAlignerType = LyricAlignerType.Disabled
+
+    NUSAutoLyrixAlign_path: Optional[Path] = field(default_factory=Path)
+
+    NUSAutoLyrixAlign_working_directory: Optional[Path] = field(default_factory=Path)
+
+@dataclass
+class SettingsDataInput():
+    paths_to_process: List[Path] = field(default_factory=list)
 
     folders_to_exclude: Optional[List] = field(default_factory=list)
 
-    recursively_parse_audio_file_path: bool = False
+    recursively_process_paths: bool = False
 
     overwrite_existing_generated_files: bool = True
 
-    # TODO: This name REALLY needs to change, to easily confused with the setting below
-    file_output_location: FileOutputLocation = FileOutputLocation.SeparateDirectory
-
-    path_to_output_files: Path = field(default_factory=Path)
-
-    # TODO: Turn this into Enum, as we'll likely want fairly varied behavior for using pre-existing
-    # or getting new files in for various situations.
-    use_preexisting_files: bool = True
-
-    # In case we download them from some place (like genius)
-    keep_fetched_lyric_files: bool = True
 
 
 @dataclass
-class Config():
-    general: ConfigGeneral = field(default_factory=ConfigGeneral)
+class SettingsDataOutput():
+    path_to_working_directory: Path = MISSING
 
-    data: ConfigData = field(default_factory=ConfigData)
+    aligned_lyrics_copy_destination: FileOutputLocation = FileOutputLocation.SeparateDirectory
 
+    path_to_output_aligned_lyrics: Optional[Path] = field(default_factory=Path)
+
+    aligned_lyrics_output_mode: AlignedLyricsOutputMode = AlignedLyricsOutputMode.Readable
+
+
+
+@dataclass
+class SettingsData():
+    input: SettingsDataInput = field(default_factory=SettingsDataInput)
+
+    output: SettingsDataOutput = field(default_factory=SettingsDataOutput)
+
+
+@dataclass
+class Settings():
+    lyric_fetching: SettingsLyricFetching = field(default_factory=SettingsLyricFetching)
+
+    lyric_alignment: SettingsLyricAlignment = field(default_factory=SettingsLyricAlignment)
+
+    data: SettingsData = field(default_factory=SettingsData)
     
-
-
 
 
 # paths_to_process:list[Path], 

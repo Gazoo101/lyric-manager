@@ -1,55 +1,72 @@
 # LyricManager Settings File
 
-general:
-  # Supported lyric fetches:
+lyric_fetching:
+  # Supported sources:
   # - LocalFile
   # - Genius
-  # - LyricsDotOvh (Not fully implemented)
+  # - LyricsDotOvh (Not implemented)
   # If left empty, LyricManager will assume local files are available?
-  lyric_fetchers:
+  #
+  # Order determines preference. 
+  sources:
     - LocalFile
     - Genius
 
-  # Required, if lyric_fetchers includes Genius
-  lyric_fetcher_genius_token:
+  # Genius API token. Required if using Genius as source.
+  genius_token:
 
-  # Supported lyric aligners:
-  #   - NUSAutoLyrixAlignOffline
-  #   - NUSAutoLyrixAlignOnline (Not fully implemented)
-  #   - Disabled
-  lyric_aligner: Disabled
+
+lyric_alignment:
+  # Supported methods:
+  # method: Disabled                  (To just fetch lyrics)
+  # method: NUSAutoLyrixAlignOffline
+  # method: NUSAutoLyrixAlignOnline   (Not implemented)
+  method: Disabled
+
+  # Path to where NUSAutoLyrixAlign is installed in Offline mode
+  NUSAutoLyrixAlign_path:
 
   # Path to where LyricManager temporarily copies files for NUSAutoLyrixAlignOffline to parse
   # Note, NUSAutoLyrixAlignOffline does *not* function properly with a path containing spaces (' ')
-  path_to_NUSAutoLyrixAlign_working_directory: ~/nusautolyrixalign_working_directory
-
-  # Required, if lyric_aligner=NUSAutoLyrixAlignOffline
-  path_to_NUSAutoLyrixAlignOffline: None
-
-  # LyricManager supports two export_readable_json settings:
-  #   - False: Few spaces, few line breaks, no tabs. Intended for low disk space consumtion.
-  #   - True: Indentation, lots of spaces and line breaks. Intended for readability and debugging.
-  export_readable_json: True
+  NUSAutoLyrixAlign_working_directory: ~/nusautolyrixalign_working_directory
 
 data:
-  # Folders with music for LyricManager to parse
-  paths_to_audio_files_to_process:
-    - ~/path/to/your/music
-    - ~/another/path/to/music
+  input:
 
-  # Any folders added here will be excluded from processing. Mainly useful for recursive parsing.
-  folders_to_exclude:
+    # Folders with music for LyricManager to process
+    paths_to_process:
+      - ~/path/to/your/music
+      - ~/another/path/to/music
 
-  recursively_parse_audio_file_path: False
+    # Any folders added here will be excluded from processing. Mainly useful for recursive parsing.
+    folders_to_exclude:
 
-  overwrite_existing_generated_files: True
+    # If true, will parse sub-folders located in all folders in paths_to_process
+    recursively_process_paths: False
 
-  file_output_location: SeparateDirectory
-  path_to_output_files:
+    overwrite_existing_generated_files: True
 
-  # TODO: Turn this into Enum, as we'll likely want fairly varied behavior for using pre-existing
-  # or getting new files in for various situations.
-  use_preexisting_files: True
+  output:
 
-  # In case we download them from some place (like genius)
-  keep_fetched_lyric_files: True
+    # LyricManager generates an abundance of files during processing.
+    # A working directory is required and is - by default - located in a sub-folder where LyricManager is located.
+    path_to_working_directory: ./WorkingDirectory
+
+    # The 'final' lyric alignment file (with extension .aligned_lyrics) LyricManager produces, can be copied alongside
+    # the original audio file, into a wholly separate directory, or not copied anywhere at all.
+    # aligned_lyrics_copy_destination: NextToAudioFile
+    # aligned_lyrics_copy_destination: SeparateDirectory
+    aligned_lyrics_copy_destination: Disabled
+
+    path_to_output_aligned_lyrics:
+
+    # LyricManager supports two ways to output aligned lyrics:
+    #   - Compact:  Few spaces, few line breaks, no tabs. Intended for low disk space consumtion.
+    #   - Readable: Indentation, lots of spaces and line breaks. Intended for readability and debugging.
+    #aligned_lyrics_output_mode: Compact
+    aligned_lyrics_output_mode: Readable
+    
+  # TODO: In a future version, it may be worth-while to provide a series of processing settings to determine whether
+  # new sources of information should be fetched/generated, or whether to re-use existing ones.
+  # For now, LyricManager applies very rudamentary logic to attempt to highlight files which are likely flawed, and
+  # should be removed by the user to re-acquire or re-generate them.

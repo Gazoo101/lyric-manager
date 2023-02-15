@@ -36,7 +36,7 @@ from .lyric import LyricSanitizer
 from .lyric import LyricExpander
 from .lyric import LyricMatcher
 
-from src.lyric_processing_config import Config
+from src.lyric_processing_config import Settings
 from src.blergh.audio_lyric_align_task import AudioLyricAlignTask
 
 if TYPE_CHECKING:
@@ -96,32 +96,32 @@ class LyricManagerBase:
         return factory
     
 
-    def _create_lyric_fetcher(self, type: LyricFetcherType, config: Config):
+    def _create_lyric_fetcher(self, type: LyricFetcherType, settings: Settings):
         """ Returns a lyric fetcher matching the provided type.
 
         In order to cleanly encapsulate the LyricFetcher from the configuration code, we must build this intermediary
         code handling parameter passing.
         """
         lyric_fetcher_parameters = {
-            "path_to_output_dir": config.data.path_to_output_files
+            "path_to_output_dir": settings.data.path_to_output_files
         }
 
         if type == LyricFetcherType.Genius:
-            lyric_fetcher_parameters["token"] = config.general.lyric_fetcher_genius_token
+            lyric_fetcher_parameters["token"] = settings.general.lyric_fetcher_genius_token
             lyric_fetcher_parameters["path_to_data"] = self.path_to_data # ??? wtf is this?
         
         return self.factory_lyric_fetcher.create(type, **lyric_fetcher_parameters)
 
 
-    def _create_lyric_aligner(self, type: LyricAlignerType, config: Config):
+    def _create_lyric_aligner(self, type: LyricAlignerType, settings: Settings):
 
         lyric_aligner_parameters = {
             "path_temp_dir": self.path_to_data, # improve this
         }
 
         if type == LyricAlignerType.NUSAutoLyrixAlignOffline:
-            lyric_aligner_parameters["path_to_aligner"] = config.general.path_to_NUSAutoLyrixAlignOffline
-            lyric_aligner_parameters["path_to_output_dir"] = config.data.path_to_output_files
+            lyric_aligner_parameters["path_to_aligner"] = settings.general.path_to_NUSAutoLyrixAlignOffline
+            lyric_aligner_parameters["path_to_output_dir"] = settings.data.path_to_output_files
 
         return self.factory_lyric_aligner.create(type, **lyric_aligner_parameters)
 
@@ -161,7 +161,7 @@ class LyricManagerBase:
 
     
     def fetch_and_align_lyrics(self,
-        config: Config,
+        settings: Settings,
         loop_wrapper: Union[ProgressItemGeneratorCLI, ProgressItemGeneratorGUI]):
         """ Fetches and aligns lyrics using various external modules.
 
@@ -170,26 +170,26 @@ class LyricManagerBase:
 
         # Construct fetchers and aligners.
         lyric_fetchers = []
-        for lyric_fetcher_type in config.general.lyric_fetchers:
-            lyric_fetchers.append(self._create_lyric_fetcher(lyric_fetcher_type, config))
+        for lyric_fetcher_type in settings.general.lyric_fetchers:
+            lyric_fetchers.append(self._create_lyric_fetcher(lyric_fetcher_type, settings))
 
-        lyric_aligner = self._create_lyric_aligner(config.general.lyric_aligner, config)
+        lyric_aligner = self._create_lyric_aligner(settings.general.lyric_aligner, settings)
 
 
 
         # This should probably occur in the LyricManager constructor!
-        if config.data.path_to_output_files:
-            config.data.path_to_output_files.mkdir(exist_ok=True)
+        if settings.data.path_to_output_files:
+            settings.data.path_to_output_files.mkdir(exist_ok=True)
 
 
         paths_to_process_valid = []
-        for path in config.data.paths_to_audio_files_to_process:
+        for path in settings.data.paths_to_audio_files_to_process:
             if not path.exists():
                 logging.info(f"Provided path to process '{path}' not found. Skipping it.")
 
             paths_to_process_valid.append(path)
 
-        all_audio_files = self._get_audio_files_found_in_paths(paths_to_process_valid, config.data.recursively_parse_audio_file_path)
+        all_audio_files = self._get_audio_files_found_in_paths(paths_to_process_valid, settings.data.recursively_parse_audio_file_path)
 
         logging.info(f"Found {len(all_audio_files)} audio files to process.")
 
@@ -226,9 +226,9 @@ class LyricManagerBase:
         # results to disk in the same loop to ensure nothing is lost in case of unexpected errors.
         for task in loop_wrapper(tasks_with_lyrics_valid, desc="Align lyrics"):
 
-            lyric_align_task = self._align_lyrics(task, lyric_aligner, config.data.path_to_output_files, config.data.use_preexisting_files)
+            lyric_align_task = self._align_lyrics(task, lyric_aligner, settings.data.path_to_output_files, settings.data.use_preexisting_files)
 
-            self._write_aligned_lyrics_to_disk(lyric_align_task, config.data.path_to_output_files, config.general.export_readable_json)
+            self._write_aligned_lyrics_to_disk(lyric_align_task, settings.data.path_to_output_files, settings.general.export_readable_json)
 
         self._create_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
 
