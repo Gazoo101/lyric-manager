@@ -1,4 +1,5 @@
 # Python
+from __future__ import annotations
 import os
 import logging
 import contextlib
@@ -6,22 +7,24 @@ import time
 import random
 import re
 from dataclasses import dataclass
-from requests.exceptions import Timeout
 from pathlib import Path
 from datetime import datetime
-from typing import DefaultDict, Tuple
+from typing import DefaultDict, Tuple, TYPE_CHECKING
 from collections import defaultdict
 
 # 3rd Party
 import lyricsgenius
+from requests.exceptions import Timeout
 import jsons
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
 from .lyric_fetcher_type import LyricFetcherType
-from components import AudioLyricAlignTask
-from components import LyricValidity
-from components import text_simplifier
+from ..lyric_validity import LyricValidity
+from ...components import text_simplifier
+
+if TYPE_CHECKING:
+    from ...blergh import AudioLyricAlignTask
 
 # FetchErrors is a @dataclass so we can construct defaultdict(FetchErrors) which can be serialized using jsons.
 # defaultdict(defaultdict(Enum)) cannot be serialized in using jsons.

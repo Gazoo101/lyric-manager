@@ -9,9 +9,9 @@ from dataclasses import dataclass
 
 
 # 1st Party
-from .miscellaneous import percentage
-from .miscellaneous import get_percentage_and_amount_string
-from lyric_aligner import WordAndTiming
+from ..components.miscellaneous import percentage
+from ..components.miscellaneous import get_percentage_and_amount_string
+from ..lyric.aligners import WordAndTiming
 
 
 @dataclass

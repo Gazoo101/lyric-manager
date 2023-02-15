@@ -1,6 +1,8 @@
+# Python
+from __future__ import annotations
 import logging
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, TYPE_CHECKING
 
 # 3rd Party
 
@@ -8,10 +10,18 @@ from typing import Tuple
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
 from .lyric_fetcher_type import LyricFetcherType
-from components import AudioLyricAlignTask
-from components import LyricValidity
+from ..lyric_validity import LyricValidity
+
+if TYPE_CHECKING:
+    from ...blergh import AudioLyricAlignTask
 
 class LyricFetcherLocalFile(LyricFetcherInterface):
+
+    # @classmethod
+    # def create(cls, path_to_output_dir:Path):
+
+    #     horsie = 2
+
 
     def __init__(self, path_to_output_dir:Path = None):
         super().__init__(LyricFetcherType.LocalFile, ".txt", path_to_output_dir)

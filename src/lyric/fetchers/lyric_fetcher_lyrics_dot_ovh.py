@@ -1,8 +1,13 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import Path
-from components import AudioLyricAlignTask
+from typing import TYPE_CHECKING
 
-from lyric_fetcher_type import LyricFetcherType
+from .lyric_fetcher_type import LyricFetcherType
+
+if TYPE_CHECKING:
+    from blergh import AudioLyricAlignTask
+
 
 class LyricFetcherLyricsDotOvh(ABC):
     """ Retrieves Lyrics from Lyrics.ovh via <to-be-decided>.

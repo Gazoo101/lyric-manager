@@ -9,7 +9,7 @@ from datetime import datetime
 # 1st Party
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
-import components
+#import components
 
 
 class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):

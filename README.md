@@ -1,3 +1,7 @@
+# Work-in-progress Warning
+
+This tool is being *heavily* re-written and does not function as intended currently.
+
 # Lyric Manager
 
 Lyric Manager's primary function is support automatic song and lyric aligment. Specifically, given an .mp3 file Lyric Manager will query various lyric sources including, but not limited to:
@@ -10,6 +14,7 @@ to obtain the songs lyrics. Using the song.mp3 file and song.txt lyric file, Lyr
 # Requirements
 
 - Python 3.7+ (due to its reliance on dataclass)
+- Ubuntu 20.04 for Gui (due to reliance on Qt6)
 
 # Input / Output
 
@@ -107,3 +112,10 @@ Lyric Manager has a number of known limitations:
 - Lyric Manager only supports a single lyric aligner (for now), i.e. NUSAutoLyrixAlign offline (found here: https://github.com/chitralekha18/AutoLyrixAlign)
     - In the meantime, you can use the online version of NUSAutoLyrixAlign (found here: https://autolyrixalign.hltnus.org/) and rename the output (for Audacity - selected in their online tool) to be the offline extension, e.g. `song.nusalaoffline`
 - Lyric Manager only supports fetching lyrics from one lyric database or a manually provided file
+
+
+# FAQ
+
+I'm getting the error "version `GLIBC_2.28' not found"!
+
+This will occur on Ubuntu 18.04, as Qt6 requires Ubuntu 20.04.

@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 # 1st Party
-import components
+#import components
 
 
 @dataclass
@@ -20,6 +20,11 @@ class WordAndTiming():
 
 
 class LyricAlignerInterface(ABC):
+
+    # @classmethod
+    # @abstractmethod
+    # def create(cls, **kwargs):
+    #     raise NotImplementedError("All Lyric aligners must provide this implementation.")
 
     def __init__(self, file_extension, path_temp_dir, path_to_output_dir: Path = None):
         self.file_extension = file_extension

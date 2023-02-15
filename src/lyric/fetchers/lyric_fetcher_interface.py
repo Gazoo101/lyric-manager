@@ -1,25 +1,39 @@
 # Python
+from __future__ import annotations # Why is this needed in Python 3.11?
 from abc import ABC, abstractmethod
 from pathlib import Path
-from components import AudioLyricAlignTask
-from typing import Tuple, List
+from typing import Tuple, List, TYPE_CHECKING
+
 
 # 3rd Party
 
 
 # 1st Party
-from components import LyricValidity
-from components import LyricSanitizer
-from .lyric_fetcher_type import LyricFetcherType
+#import ..components
+#from ..components import LyricSanitizer
 
+from .lyric_fetcher_type import LyricFetcherType
+import src.lyric as lll
+
+if TYPE_CHECKING:
+    from ...lyric import LyricValidity
+    from ...blergh import AudioLyricAlignTask
+    
 class LyricFetcherInterface(ABC):
+
+    # We can probably just rely on __init__ and Python to do its kwargs majik
+    # @classmethod
+    # @abstractmethod
+    # def create(cls, **kwargs):
+    #     raise NotImplementedError("All Lyric fetchers must provide this implementation.")
 
     def __init__(self, type: LyricFetcherType, file_extension: str, path_to_output_dir: Path=None):
         self.type = type
         self.file_extension = file_extension
         self.path_to_output_dir = path_to_output_dir
 
-        self.lyric_sanitizer = LyricSanitizer()
+        #self.lyric_sanitizer = components.LyricSanitizer()
+        self.lyric_sanitizer = lll.LyricSanitizer()
 
 
     @abstractmethod

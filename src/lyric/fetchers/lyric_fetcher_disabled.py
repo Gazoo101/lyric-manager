@@ -1,7 +1,11 @@
-from lyric_fetcher import LyricFetcherInterface
+from .lyric_fetcher_interface import LyricFetcherInterface
 from .lyric_fetcher_type import LyricFetcherType
 
 class LyricFetcherDisabled(LyricFetcherInterface):
+
+    @classmethod
+    def create(cls, **kwargs):
+        return cls()
 
     def __init__(self):
         super()

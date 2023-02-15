@@ -6,12 +6,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+
+### Changed
+
+### Removed
+
+## [0.1] - 2023-02-15 - Version Reset
+- This version is broken, but the changes are so massive, that the commit was made so as to track progess a bit better.
+
+### Added
 - Proper path check to NUSAutoLyrixAligner
 - Tons of type-hinting
 - Supports parsing multiple audio folders
 - Support for more extensions .wav and .aiff (previously just .mp3)
+- Added Gui and Cli
 
 ### Changed
+- Switched from strictyaml to OmegaConf
 - Updated and improved settings-example.yaml 
 - Added tqdm to requirements.txt
 - LyricManager / main.py re-factored for clarity and encapsulation

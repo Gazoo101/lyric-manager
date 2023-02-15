@@ -1,0 +1,1 @@
+from .audio_lyric_align_task import AudioLyricAlignTask

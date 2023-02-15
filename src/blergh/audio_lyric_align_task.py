@@ -1,16 +1,16 @@
 # Python
 from dataclasses import dataclass, field
 from pathlib import Path
-import sys
-sys.path.append("..") # Haxx to access LyricFetcherType
+#import sys
+#sys.path.append("..") # Haxx to access LyricFetcherType
 
 # 3rd Party
 
 
 # 1st Party
-from .lyric_state import LyricValidity
-from .lyric_matcher import MatchResult
-from lyric_fetcher import LyricFetcherType
+from ..lyric.lyric_validity import LyricValidity
+from ..lyric.lyric_matcher import MatchResult
+from ..lyric.fetchers import LyricFetcherType
 
 # TODO: Explain the 3 phases the text goes through
 

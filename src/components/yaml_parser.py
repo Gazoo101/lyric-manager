@@ -15,8 +15,10 @@ from typing import Union
 
 # Intentionally left as a non-explicit import, i.e. NOT 'from lyric_fetcher import LyricFetcherInterface'
 # as this would lead to a circular dependence.
-import lyric_fetcher
-import lyric_aligner
+from ..lyric.fetchers import LyricFetcherInterface
+from ..lyric.aligners import LyricAlignerInterface
+# from .. import lyric_fetcher
+# from .. import lyric_aligner
 
 
 class FileOutputLocation(Enum):
