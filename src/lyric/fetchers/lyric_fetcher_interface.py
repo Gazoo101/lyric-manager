@@ -17,22 +17,15 @@ import src.lyric as lll
 
 if TYPE_CHECKING:
     from ...lyric import LyricValidity
-    from ...blergh import AudioLyricAlignTask
+    from ...audio_lyric_align_task import AudioLyricAlignTask
     
 class LyricFetcherInterface(ABC):
 
-    # We can probably just rely on __init__ and Python to do its kwargs majik
-    # @classmethod
-    # @abstractmethod
-    # def create(cls, **kwargs):
-    #     raise NotImplementedError("All Lyric fetchers must provide this implementation.")
-
-    def __init__(self, type: LyricFetcherType, file_extension: str, path_to_output_dir: Path=None):
+    def __init__(self, type: LyricFetcherType, file_extension: str, path_to_working_dir: Path=None):
         self.type = type
         self.file_extension = file_extension
-        self.path_to_output_dir = path_to_output_dir
+        self.path_to_working_dir = path_to_working_dir
 
-        #self.lyric_sanitizer = components.LyricSanitizer()
         self.lyric_sanitizer = lll.LyricSanitizer()
 
 

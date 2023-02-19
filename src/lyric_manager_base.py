@@ -37,6 +37,7 @@ from .lyric import LyricExpander
 from .lyric import LyricMatcher
 
 from src.lyric_processing_config import Settings
+from src.lyric_processing_config import FileCopyMode
 from src.blergh.audio_lyric_align_task import AudioLyricAlignTask
 
 if TYPE_CHECKING:
@@ -44,15 +45,19 @@ if TYPE_CHECKING:
     from .gui import ProgressItemGeneratorGUI
 
 class LyricManagerBase:
-    def __init__(self) -> None:
+    def __init__(self, working_directory: str, reports_directory: str) -> None:
+        """
+        Args:
+            working_directory: Either a default or user-defined path to LyricManager's working directory.
+            reports_directory: Either a default or user-defined path to LyricManager's report directory.
+        """
         # Preferred over __file__, as that has been known to cause issues with Py2Exe
         self.path_to_application = Path(sys.argv[0]).parent
 
-        # Give this a much better name and understand what's in the folder
-        self.path_to_data = self.path_to_application / "Data"
-        self.path_to_data.mkdir(exist_ok=True)
+        self.path_to_working_directory = self.path_to_application / working_directory
+        self.path_to_working_directory.mkdir(exist_ok=True)
 
-        self.path_to_reports = self.path_to_application / "Reports"
+        self.path_to_reports = self.path_to_application / reports_directory
         self.path_to_reports.mkdir(exist_ok=True)
 
         self._init_logger(self.path_to_application)
@@ -79,12 +84,20 @@ class LyricManagerBase:
         self.recognized_audio_filename_extensions = ["mp3", "wav", "aiff"]
 
 
+    def _valid_audio_extension(self, filename: str):
+        for extension in self.recognized_audio_filename_extensions:
+            if filename.endswith(extension):
+                return True
+        
+        return False
+
+
     def _create_factory_lyric_fetcher(self):
         factory = ObjectFactory()
         factory.register_builder(LyricFetcherType.Disabled, LyricFetcherDisabled)
-        factory.register_builder(LyricFetcherType.Genius, LyricFetcherGenius)
+        factory.register_builder(LyricFetcherType.Pypi_LyricsGenius, LyricFetcherGenius)
         factory.register_builder(LyricFetcherType.LocalFile, LyricFetcherLocalFile)
-        factory.register_builder(LyricFetcherType.LyricsDotOvh, LyricFetcherLyricsDotOvh)
+        factory.register_builder(LyricFetcherType.Website_LyricsDotOvh, LyricFetcherLyricsDotOvh)
         return factory
 
 
@@ -103,12 +116,12 @@ class LyricManagerBase:
         code handling parameter passing.
         """
         lyric_fetcher_parameters = {
-            "path_to_output_dir": settings.data.path_to_output_files
+            "path_to_working_dir": self.path_to_working_directory
         }
 
-        if type == LyricFetcherType.Genius:
-            lyric_fetcher_parameters["token"] = settings.general.lyric_fetcher_genius_token
-            lyric_fetcher_parameters["path_to_data"] = self.path_to_data # ??? wtf is this?
+        if type == LyricFetcherType.Pypi_LyricsGenius:
+            lyric_fetcher_parameters["token"] = settings.lyric_fetching.genius_token
+            #lyric_fetcher_parameters["path_to_data"] = self.path_to_working_directory # ??? wtf is this?
         
         return self.factory_lyric_fetcher.create(type, **lyric_fetcher_parameters)
 
@@ -116,12 +129,13 @@ class LyricManagerBase:
     def _create_lyric_aligner(self, type: LyricAlignerType, settings: Settings):
 
         lyric_aligner_parameters = {
-            "path_temp_dir": self.path_to_data, # improve this
+            "path_temp_dir": self.path_to_working_directory, # improve this
         }
 
         if type == LyricAlignerType.NUSAutoLyrixAlignOffline:
-            lyric_aligner_parameters["path_to_aligner"] = settings.general.path_to_NUSAutoLyrixAlignOffline
-            lyric_aligner_parameters["path_to_output_dir"] = settings.data.path_to_output_files
+            lyric_aligner_parameters["path_to_aligner"] = settings.lyric_alignment.NUSAutoLyrixAlign_path
+            lyric_aligner_parameters["path_to_output_dir"] = settings.lyric_alignment.NUSAutoLyrixAlign_working_directory
+            raise Exception("This has yet to be fixed - the outputdir doesn't exist and NUSAutoLyrix align likely needs 2 dirs.")
 
         return self.factory_lyric_aligner.create(type, **lyric_aligner_parameters)
 
@@ -158,6 +172,22 @@ class LyricManagerBase:
         elif DeveloperOptions.execution_mode == DeveloperOptions.ExecutionMode.LyricParsing:
             pass
 
+    
+    def _setup_folders(self, settings: Settings):
+        """ Explain that this is a separate function as both GUI/CLI should call it, and not in the constructor :/ """
+
+        if settings.data.output.path_to_working_directory:
+            settings.data.output.path_to_working_directory.mkdir(exist_ok=True)
+        
+        if settings.data.output.path_to_reports:
+            settings.data.output.path_to_reports.mkdir(exist_ok=True)
+        
+        if settings.data.output.aligned_lyrics_file_copy_mode == FileCopyMode.SeparateDirectory:
+            if settings.data.output.path_to_output_aligned_lyrics:
+                settings.data.output.path_to_output_aligned_lyrics.mkdir(exist_ok=True)
+            else:
+                logging.error("Aligned lyrics are expected to be copied, yet no path for the destination is available")
+                raise Exception("Aligned lyrics are expected to be copied, yet no path for the destination is available")
 
     
     def fetch_and_align_lyrics(self,
@@ -170,26 +200,27 @@ class LyricManagerBase:
 
         # Construct fetchers and aligners.
         lyric_fetchers = []
-        for lyric_fetcher_type in settings.general.lyric_fetchers:
+        for lyric_fetcher_type in settings.lyric_fetching.sources:
             lyric_fetchers.append(self._create_lyric_fetcher(lyric_fetcher_type, settings))
 
-        lyric_aligner = self._create_lyric_aligner(settings.general.lyric_aligner, settings)
+        lyric_aligner = self._create_lyric_aligner(settings.lyric_alignment.method, settings)
 
 
 
         # This should probably occur in the LyricManager constructor!
-        if settings.data.path_to_output_files:
-            settings.data.path_to_output_files.mkdir(exist_ok=True)
+        self._setup_folders(settings)
+        # if settings.data.output.path_to_output_files:
+        #     settings.data.path_to_output_files.mkdir(exist_ok=True)
 
 
         paths_to_process_valid = []
-        for path in settings.data.paths_to_audio_files_to_process:
+        for path in settings.data.input.paths_to_process:
             if not path.exists():
                 logging.info(f"Provided path to process '{path}' not found. Skipping it.")
 
             paths_to_process_valid.append(path)
 
-        all_audio_files = self._get_audio_files_found_in_paths(paths_to_process_valid, settings.data.recursively_parse_audio_file_path)
+        all_audio_files = self._get_audio_files_found_in_paths(paths_to_process_valid, settings.data.input.recursively_process_paths)
 
         logging.info(f"Found {len(all_audio_files)} audio files to process.")
 
@@ -226,9 +257,9 @@ class LyricManagerBase:
         # results to disk in the same loop to ensure nothing is lost in case of unexpected errors.
         for task in loop_wrapper(tasks_with_lyrics_valid, desc="Align lyrics"):
 
-            lyric_align_task = self._align_lyrics(task, lyric_aligner, settings.data.path_to_output_files, settings.data.use_preexisting_files)
+            lyric_align_task = self._align_lyrics(task, lyric_aligner, self.path_to_working_directory)
 
-            self._write_aligned_lyrics_to_disk(lyric_align_task, settings.data.path_to_output_files, settings.general.export_readable_json)
+            self._write_aligned_lyrics_to_disk(lyric_align_task, self.path_to_working_directory, settings.data.output.aligned_lyrics_output_mode)
 
         self._create_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
 
@@ -318,7 +349,7 @@ class LyricManagerBase:
         return lyric_align_task
     
 
-    def _align_lyrics(self, lyric_align_task: AudioLyricAlignTask, lyric_aligner, file_output_path: Path, use_preexisting_files: bool):
+    def _align_lyrics(self, lyric_align_task: AudioLyricAlignTask, lyric_aligner, file_output_path: Path):
         """A class for a user
 
         Args:
@@ -354,7 +385,7 @@ class LyricManagerBase:
         time_aligned_lyrics: list[WordAndTiming] = lyric_aligner.align_lyrics(
             lyric_align_task.path_to_audio_file,
             path_to_alignment_ready_file,
-            use_preexisting=use_preexisting_files
+            use_preexisting=True
         )
 
         lyrics_structured_aligned, match_result = self.lyric_matcher.match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)

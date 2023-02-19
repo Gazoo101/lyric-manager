@@ -44,8 +44,8 @@ class LyricFetcherGenius(LyricFetcherInterface):
     
     """
 
-    def __init__(self, token, path_to_data: Path, path_to_output_dir:Path = None):
-        super().__init__(LyricFetcherType.Genius, ".genius", path_to_output_dir)
+    def __init__(self, token, path_to_working_dir:Path = None):
+        super().__init__(LyricFetcherType.Pypi_LyricsGenius, ".genius", path_to_working_dir)
         self.token = token
         self.genius = lyricsgenius.Genius(self.token)
 
@@ -57,7 +57,7 @@ class LyricFetcherGenius(LyricFetcherInterface):
         self.random_wait_lower = 3.0 # seconds
         self.random_wait_upper = 10.0 # seconds
 
-        self.path_to_fetch_history = path_to_data / "fetch_history.genius"
+        self.path_to_fetch_history = path_to_working_dir / "genius_fetch_history.lm"
         self.fetch_history = self._init_fetch_history()
 
 
@@ -149,8 +149,8 @@ class LyricFetcherGenius(LyricFetcherInterface):
         # Fetch pre-cached version
         path_to_cached_lyrics = audio_lyric_align_task.path_to_audio_file
 
-        if self.path_to_output_dir:
-            path_to_cached_lyrics = self.path_to_output_dir / audio_lyric_align_task.path_to_audio_file.name
+        if self.path_to_working_dir:
+            path_to_cached_lyrics = self.path_to_working_dir / audio_lyric_align_task.path_to_audio_file.name
 
         path_to_cached_lyrics = path_to_cached_lyrics.with_suffix(self.file_extension)
 

@@ -13,43 +13,49 @@ from .lyric_fetcher_type import LyricFetcherType
 from ..lyric_validity import LyricValidity
 
 if TYPE_CHECKING:
-    from ...blergh import AudioLyricAlignTask
+    from ...audio_lyric_align_task import AudioLyricAlignTask
 
 class LyricFetcherLocalFile(LyricFetcherInterface):
+    """ Fetches local .txt files containing lyrics for a given song. """
 
-    # @classmethod
-    # def create(cls, path_to_output_dir:Path):
-
-    #     horsie = 2
-
-
-    def __init__(self, path_to_output_dir:Path = None):
-        super().__init__(LyricFetcherType.LocalFile, ".txt", path_to_output_dir)
+    def __init__(self, path_to_working_dir:Path = None):
+        super().__init__(LyricFetcherType.LocalFile, ".txt", path_to_working_dir)
 
 
     def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> Tuple[str, LyricValidity]:
+        """ Returns a tuple consisting of lyrics in a string along with Validity of said lyrics.
+
+        The lyric .txt file is expected to share the exact same filename as the song it matches, e.g.
+        "Blur - Song 2.txt", would match "Blur - Song 2.<audio extension>".
+
+        Two locations are searched for matching .txt files:
+            - The same directory as the audio file.
+            - LyricManager's working directory.
+
+        NOTE: Since .txt files are provided manually by the user, LyricManager will assume Validity for all such files.
+        """
 
         local_lyric_filename = audio_lyric_align_task.path_to_audio_file.with_suffix(self.file_extension).name
 
         path_to_local_copy_next_to_audio = audio_lyric_align_task.path_to_audio_file.parent / local_lyric_filename
-        path_to_local_copy_in_output = self.path_to_output_dir / local_lyric_filename
+        path_to_local_copy_in_working_dir = self.path_to_working_dir / local_lyric_filename
 
-        path_to_local_copy = None
+        path_to_lyric_txt_file = None
         if path_to_local_copy_next_to_audio.exists():
-            path_to_local_copy = path_to_local_copy_next_to_audio
+            path_to_lyric_txt_file = path_to_local_copy_next_to_audio
 
-        if path_to_local_copy_in_output.exists():
-            path_to_local_copy = path_to_local_copy_in_output
+        if path_to_local_copy_in_working_dir.exists():
+            path_to_lyric_txt_file = path_to_local_copy_in_working_dir
 
 
-        if not path_to_local_copy:
+        if not path_to_lyric_txt_file:
             return "", LyricValidity.NotFound
 
-        logging.info(f"Using local copy: {path_to_local_copy}")
+        logging.info(f"Using local copy: {path_to_lyric_txt_file}")
         
         file_content = None
 
-        with open(path_to_local_copy, 'r', encoding='utf8', errors='ignore') as file:
+        with open(path_to_lyric_txt_file, 'r', encoding='utf8', errors='ignore') as file:
             file_content = file.read()
         
         # Currently, we *always* assume that local lyric files are valid.

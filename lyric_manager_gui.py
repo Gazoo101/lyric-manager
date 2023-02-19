@@ -2,6 +2,7 @@
 import os
 import sys
 import logging
+from pathlib import Path
 from typing import Optional
 
 # 3rd Party
@@ -9,7 +10,7 @@ from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QMainWindow, QListWidget, QPlainTextEdit, QListWidgetItem, QAbstractItemView
 from PySide6.QtWidgets import QRadioButton, QTableWidget, QProgressBar, QPushButton, QCheckBox
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtCore import QFile, QDir, qDebug
+from PySide6.QtCore import QFile, QDir, qDebug, QSettings
 
 # 1st Party
 from src.developer_options import DeveloperOptions
@@ -18,7 +19,7 @@ from src.gui import QListWidgetDragAndDrop
 from src.gui import LoggingHandlerSignal
 
 from src.lyric_manager_base import LyricManagerBase
-from src.lyric_processing_config import Config
+from src.lyric_processing_config import Settings
 
 def bind_class_property_to_qt_widget_property(objectName, propertyName):
     """ Binds a Python class property to a given Qt widget property.
@@ -53,6 +54,19 @@ def bind_class_property_to_qt_widget_property(objectName, propertyName):
 
 
 class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
+    """ LyricManager's graphical user interface implementation.
+
+    LyricManager's two interface implementations (Command-line- and Graphical User Interface) each implement settings
+    handling differently, due to their differing modes of operation.
+
+    LyricManagerCommandLineInterface operates in a 'one-shot' fashion without an event loop. On-disk settings are parsed
+    via .yaml files that are turned into dataclass objects via OmegaConf. Every single setting is managed via the
+    incoming .yaml file.
+
+    LyricManagerGraphicUserInterface operates in a persistent manner, via an event loop. Settings are managed via the
+    Qt Gui which in-turn relies on QSettings to store any persistent settings on-disk, such as working directory or
+    window spawn position and size.
+    """
 
     # TODO: Consider whether we should just directly access the widgets in the code. This is a bit obscure...
     recursively_parse_folders_to_process = \
@@ -65,8 +79,18 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
 
     def __init__(self, parent: Optional[QtCore.QObject] = ...) -> None:
-        LyricManagerBase.__init__(self)
+        # As we wish to use LyricManagerBase as the focal point for the application, yet we still need the application
+        # path, we must manually assemble this here:
+        path_to_application_qt_ini_file = Path(sys.argv[0]).parent / "LyricManagerGui.ini"
+
+        self.q_settings = QSettings(str(path_to_application_qt_ini_file), QSettings.IniFormat)
+        work_directory = self.q_settings.value("WorkingDirectory", "./WorkingDirectory")
+        reports_directory = self.q_settings.value("ReportsDirectory", "./Reports")
+
+        LyricManagerBase.__init__(self, work_directory, reports_directory)
         QtCore.QObject.__init__(self)
+
+
 
         # A bool primarily used to avoid accessing deleted objects during shut-down in self.eventFilter()
         self.is_running = True
@@ -79,16 +103,18 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         # We instantiate a raw config object to bind various Gui properties to, to see if that works.
         # For more complicated things, this might not work as easily...
-        self.test_config = Config()
+        #self.test_config = Config() # no - undo...
 
         self._setup_ui("./resources/lyric_manager.ui")
+
+        q_rect_geometry = self.q_settings.value("windowGeometry", self.widget_main_window.geometry())
+        self.widget_main_window.setGeometry(q_rect_geometry)
 
         self.widget_main_window.setWindowTitle(f"LyricManager v. {DeveloperOptions.version}")
 
         # Causes Qt to trigger this classes eventFilter() to handle incoming events. It's primarily used to respond
         # to key presses, such as Esc to quit.
         self.widget_main_window.installEventFilter(self)
-        #self._read_settings()
 
         # To funnel logging calls (e.g. info() warn()) into the Gui, we add a handler which uses Qt's Signal/Slot system
         # to pass these logging messages to a QPlainTextEdit widget.
@@ -101,19 +127,6 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         signal_logger.emitter.log_message.connect(self.widget_log.appendPlainText)
         logging.getLogger().addHandler(signal_logger)
 
-        # We retain a Qt-ini settings file for gui specific settings.
-        # - Non-gui code shouldn't be burdened by import/including Qt.
-        # - It is much easier to save/load Qt related data via its own ini format
-        self.path_to_settings_qt = self.path_to_application / "properties_qt.ini"
-
-        if self.path_to_settings_qt.exists():
-            q_settings_obj = QtCore.QSettings(str(self.path_to_settings_qt), QtCore.QSettings.IniFormat)
-            q_rect_geometry = q_settings_obj.value("windowGeometry")
-            self.widget_main_window.setGeometry(q_rect_geometry)
-
-            # Although .saveGeometry() and .restoreGeometry() appear to be the preferred approach to saving and
-            # restoring window position and size, it appears have issues working across multiple screens.
-            # self.widget_main_window.restoreGeometry(settings_obj.value("windowGeometry"))
 
         logging.info("LyricManager Gui loaded.")
 
@@ -294,12 +307,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
                     window_geometry = self.widget_main_window.geometry()
 
-                    # logging.info(f"pos:  {self.widget_main_window.pos()}")
-                    # logging.info(f"size: {self.widget_main_window.size()}")
-                    # logging.info(f"window_geometry: {window_geometry}")
-
-                    settings_obj = QtCore.QSettings(str(self.path_to_settings_qt), QtCore.QSettings.IniFormat)
-                    settings_obj.setValue("windowGeometry", window_geometry)
+                    self.q_settings.setValue("WindowGeometry", window_geometry)
+                    self.q_settings.setValue("WorkingDirectory", "./WorkingDirectory")
 
                     self.widget_main_window.close() 
 

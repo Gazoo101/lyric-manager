@@ -1,4 +1,5 @@
 lyricsgenius==3.0.1
+lyrics_extractor
 omegaconf
 jsons
 tqdm

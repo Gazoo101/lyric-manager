@@ -13,14 +13,27 @@ from src.cli import ProgressItemGeneratorCLI
 from src.developer_options import DeveloperOptions
 
 class LyricManagerCommandLineInterface(LyricManagerBase):
+    """ LyricManager's command-line interface implementation.
+
+    LyricManager's two interface implementations (Command-line- and Graphical User Interface) each implement settings
+    handling differently, due to their differing modes of operation.
+
+    LyricManagerCommandLineInterface operates in a 'one-shot' fashion without an event loop. On-disk settings are parsed
+    via .yaml files that are turned into dataclass objects via OmegaConf. Every single setting is managed via the
+    incoming .yaml file.
+
+    LyricManagerGraphicUserInterface operates in a persistent manner, via an event loop. Settings are managed via the
+    Qt Gui which in-turn relies on QSettings to store any persistent settings on-disk, such as working directory or
+    window spawn position and size.
+    """
 
     def __init__(self, incoming_arguments: list[str]) -> None:
-        super().__init__()
-        
         parser = self._create_command_lineparser()
         parsed_arguments = parser.parse_args(incoming_arguments)
 
-        settings = self._read_settings(parsed_arguments.path_to_settings_file)
+        settings: Settings = self._read_settings(parsed_arguments.path_to_settings_file)
+
+        super().__init__(settings.data.output.path_to_working_directory, settings.data.output.path_to_reports)
 
         loop_wrapper = ProgressItemGeneratorCLI()
         self.fetch_and_align_lyrics(settings, loop_wrapper)
@@ -56,7 +69,9 @@ if __name__ == "__main__":
     # Debug/Test overrides
     # incoming_parameters = ["-h"]
     # incoming_parameters = ["--version"]
-    incoming_parameters = ["settings.yaml"]
+    #incoming_parameters = ["settings.yaml"]
+    #incoming_parameters = ["settings-scenario1.yaml"]
+    incoming_parameters = ["settings-genius-all-songs.yaml"]
 
     LyricManagerCommandLineInterface(incoming_parameters)
 

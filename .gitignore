@@ -3,10 +3,11 @@
 data/settings.yaml
 data/lyric_manager.log
 data/fetch_history.genius
-output/*
 Reports/*
 settings.yaml
 properties_qt.ini
+WorkingDirectory/*
+LyricManagerGui.ini
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
