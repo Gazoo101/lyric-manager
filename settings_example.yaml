@@ -3,17 +3,22 @@
 lyric_fetching:
   # Supported sources:
   # - LocalFile
-  # - Genius
-  # - LyricsDotOvh (Not implemented)
+  # - Pypi_LyricsGenius    (Unreliable)
+  # - Pypi_LyricsExtractor (Recommended)
+  # - Website_LyricsDotOvh (Not implemented)
   # If left empty, LyricManager will assume local files are available?
   #
   # Order determines preference. 
   sources:
     - LocalFile
-    - Genius
+    - Pypi_LyricsExtractor
 
-  # Genius API token. Required if using Genius as source.
+  # Genius API token. Required if using Pypi_LyricsGenius as source.
   genius_token:
+
+  # Google Custom Search tokens. Required if using Pypi_LyricsExtractor as source.
+  google_custom_search_api_key:
+  google_custom_search_engine_id:
 
 
 lyric_alignment:

@@ -19,12 +19,12 @@ import jsons
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
-from .lyric_fetcher_type import LyricFetcherType
-from ..lyric_validity import LyricValidity
+from ..dataclasses_and_types import LyricFetcherType
+from ..dataclasses_and_types import LyricValidity
 from ...components import text_simplifier
 
 if TYPE_CHECKING:
-    from ...blergh import AudioLyricAlignTask
+    from ...audio_lyric_align_task import AudioLyricAlignTask
 
 # FetchErrors is a @dataclass so we can construct defaultdict(FetchErrors) which can be serialized using jsons.
 # defaultdict(defaultdict(Enum)) cannot be serialized in using jsons.
@@ -37,7 +37,7 @@ class FetchErrors():
         return self.time_out + self.not_found
 
 
-class LyricFetcherGenius(LyricFetcherInterface):
+class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
     """ Retrieves Lyrics from genius.com via lyricgenius.
     
     Uses https://pypi.org/project/lyricsgenius/

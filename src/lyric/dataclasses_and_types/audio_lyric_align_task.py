@@ -8,9 +8,9 @@ from pathlib import Path
 
 
 # 1st Party
-from ..lyric.lyric_validity import LyricValidity
-from ..lyric.lyric_matcher import MatchResult
-from ..lyric.fetchers import LyricFetcherType
+from .lyric_validity import LyricValidity
+from ..lyric_matcher import MatchResult
+from .lyric_fetcher_type import LyricFetcherType
 
 # TODO: Explain the 3 phases the text goes through
 

@@ -1,4 +1,3 @@
-from .lyric_aligner_type import LyricAlignerType
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
 from .lyric_aligner_disabled import LyricAlignerDisabled

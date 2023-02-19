@@ -8,13 +8,11 @@ from enum import Enum, auto
 
 
 class DeveloperOptions():
-    """ Developer options for LyricManager
-    
-    """
+    """ Developer options for LyricManager """
 
 
     """ Major options """
-    version = 0.1
+    version = 0.2
 
     class ExecutionMode(Enum):
         # Standard internal release. Should override all debugging related options.

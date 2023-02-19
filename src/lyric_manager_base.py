@@ -19,26 +19,28 @@ from  src.components import ObjectFactory
 
 from src.components import get_percentage_and_amount_string
 
-from .lyric.fetchers import LyricFetcherType
+from .lyric.dataclasses_and_types import LyricFetcherType
+from .lyric.dataclasses_and_types import LyricAlignerType
+from .lyric.dataclasses_and_types import LyricValidity
+from .lyric.dataclasses_and_types import AudioLyricAlignTask
+
 from .lyric.fetchers import LyricFetcherDisabled
-from .lyric.fetchers import LyricFetcherGenius
+from .lyric.fetchers import LyricFetcherPyPiLyricsGenius
+from .lyric.fetchers import LyricFetcherPyPiLyricsExtractor
 from .lyric.fetchers import LyricFetcherLocalFile
-from .lyric.fetchers import LyricFetcherLyricsDotOvh
+from .lyric.fetchers import LyricFetcherWebsiteLyricsDotOvh
 from .lyric.fetchers import LyricFetcherInterface
 
-from .lyric.aligners import LyricAlignerType
 from .lyric.aligners import LyricAlignerDisabled
 from .lyric.aligners import LyricAlignerNUSAutoLyrixAlignOffline
 from .lyric.aligners import LyricAlignerNUSAutoLyrixAlignOnline
 
-from .lyric import LyricValidity
 from .lyric import LyricSanitizer
 from .lyric import LyricExpander
 from .lyric import LyricMatcher
 
 from src.lyric_processing_config import Settings
 from src.lyric_processing_config import FileCopyMode
-from src.blergh.audio_lyric_align_task import AudioLyricAlignTask
 
 if TYPE_CHECKING:
     from .cli import ProgressItemGeneratorCLI
@@ -95,9 +97,10 @@ class LyricManagerBase:
     def _create_factory_lyric_fetcher(self):
         factory = ObjectFactory()
         factory.register_builder(LyricFetcherType.Disabled, LyricFetcherDisabled)
-        factory.register_builder(LyricFetcherType.Pypi_LyricsGenius, LyricFetcherGenius)
+        factory.register_builder(LyricFetcherType.Pypi_LyricsGenius, LyricFetcherPyPiLyricsGenius)
+        factory.register_builder(LyricFetcherType.Pypi_LyricsExtractor, LyricFetcherPyPiLyricsExtractor)
         factory.register_builder(LyricFetcherType.LocalFile, LyricFetcherLocalFile)
-        factory.register_builder(LyricFetcherType.Website_LyricsDotOvh, LyricFetcherLyricsDotOvh)
+        factory.register_builder(LyricFetcherType.Website_LyricsDotOvh, LyricFetcherWebsiteLyricsDotOvh)
         return factory
 
 
@@ -122,6 +125,9 @@ class LyricManagerBase:
         if type == LyricFetcherType.Pypi_LyricsGenius:
             lyric_fetcher_parameters["token"] = settings.lyric_fetching.genius_token
             #lyric_fetcher_parameters["path_to_data"] = self.path_to_working_directory # ??? wtf is this?
+        elif type == LyricFetcherType.Pypi_LyricsExtractor:
+            lyric_fetcher_parameters["google_custom_search_api_key"] = settings.lyric_fetching.google_custom_search_api_key
+            lyric_fetcher_parameters["google_custom_search_engine_id"] = settings.lyric_fetching.google_custom_search_engine_id
         
         return self.factory_lyric_fetcher.create(type, **lyric_fetcher_parameters)
 

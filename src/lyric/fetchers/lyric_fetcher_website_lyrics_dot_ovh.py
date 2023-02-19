@@ -1,20 +1,20 @@
 # Python
 from __future__ import annotations
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 # 3rd Party
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
-from .lyric_fetcher_type import LyricFetcherType
+from ..dataclasses_and_types import LyricFetcherType
 
 if TYPE_CHECKING:
-    from blergh import AudioLyricAlignTask
+    from audio_lyric_align_task import AudioLyricAlignTask
 
 
-class LyricFetcherLyricsDotOvh(LyricFetcherInterface):
-    """ Retrieves Lyrics from Lyrics.ovh via <to-be-decided>.
+class LyricFetcherWebsiteLyricsDotOvh(LyricFetcherInterface):
+    """ Retrieves Lyrics from Lyrics.ovh via it's API, perhaps using Curl...?
     
     Note: This class is not yet implemented. It may never be, as it appears Lyrics.ovh depends on LyricMania which
     has possibly banned Lyrics.ovh from accessing its data:
@@ -26,6 +26,9 @@ class LyricFetcherLyricsDotOvh(LyricFetcherInterface):
         super().__init__(LyricFetcherType.Website_LyricsDotOvh, ".ovh", path_to_working_dir)
 
 
-    @abstractmethod
     def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask):
+        raise NotImplementedError
+    
+    def sanitize_raw_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> List[str]:
+        """ Returns a sanitized list of lyric strings based on the raw lyrics likely fetched in the function above. """
         raise NotImplementedError

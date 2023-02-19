@@ -9,8 +9,9 @@ from typing import Tuple, TYPE_CHECKING
 
 # 1st Party
 from .lyric_fetcher_interface import LyricFetcherInterface
-from .lyric_fetcher_type import LyricFetcherType
-from ..lyric_validity import LyricValidity
+from ..dataclasses_and_types import LyricFetcherType
+from ..dataclasses_and_types import LyricValidity
+
 
 if TYPE_CHECKING:
     from ...audio_lyric_align_task import AudioLyricAlignTask

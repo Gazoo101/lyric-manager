@@ -1,6 +1,10 @@
 # Python
 from enum import Enum, auto
 
+# 3rd Party
+
+# 1st Party
+
 # LyricState is currently semi-hardcoded to the Genius lyric fetcher, this should be made more generic in the
 # future
 

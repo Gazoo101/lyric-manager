@@ -1,12 +1,16 @@
+# Python
 from dataclasses import dataclass, field
 from typing import List, Optional
 from pathlib import Path
 from enum import Enum, auto
 
+# 3rd Party
 from omegaconf import MISSING
 
-from .lyric.fetchers import LyricFetcherType
-from .lyric.aligners import LyricAlignerType
+# 1st Party
+from .lyric.dataclasses_and_types import LyricFetcherType
+from .lyric.dataclasses_and_types import LyricAlignerType
+
 
 class FileCopyMode(Enum):
     Disabled = auto()
@@ -24,6 +28,9 @@ class SettingsLyricFetching():
     sources: List[LyricFetcherType] = MISSING
 
     genius_token: Optional[str] = ""
+
+    google_custom_search_api_key: Optional[str] = ""
+    google_custom_search_engine_id: Optional[str] = ""
 
 @dataclass
 class SettingsLyricAlignment():
