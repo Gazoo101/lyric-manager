@@ -1,4 +1,5 @@
 from .lyric_fetcher_interface import LyricFetcherInterface
+from .lyric_fetcher_interface import Lyrics
 from .lyric_fetcher_disabled import LyricFetcherDisabled
 from .lyric_fetcher_local_file import LyricFetcherLocalFile
 from .lyric_fetcher_pypi_lyricsgenius import LyricFetcherPyPiLyricsGenius

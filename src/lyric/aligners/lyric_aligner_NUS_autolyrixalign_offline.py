@@ -6,10 +6,14 @@ from datetime import datetime
 
 # 3rd Party
 
+
 # 1st Party
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
-#import components
+
+#... Fixems
+#import .
+from ...components import FileOperations
 
 
 class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
@@ -74,7 +78,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         path_to_singularity_image = path_to_aligner / "kaldi.simg"
 
         if not path_to_alignment_script.exists() or not path_to_singularity_image.exists():
-            raise Exception("NUSAutoLyrixAlign is missing vital files to execute properly.")
+            logging.warning("NUSAutoLyrixAlign is missing vital files to execute properly, can only run on cached files.")
 
         # Test these things:
         # song = "/home/lasse/Workspace/audio_to_align/50 Cent - In da Club.mp3"
@@ -93,8 +97,6 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         #song = "/home/lasse/Workspace/audio_to_align_failure_cases/The Young Punx - All These Things Are Gone.mp3"
 
         #"The Young Punx - All These Things Are Gone.mp3"
-
-        horse = 2
 
 
 
@@ -197,8 +199,8 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         # Update the temporary file suffix (.notset), to the proper audio file extension, e.g. .mp3 or .wav or .aiff
         path_temp_file_audio = path_temp_file_audio.with_suffix(path_to_audio_file.suffix)
 
-        components.FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
-        components.FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
+        FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
+        FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
 
         path_temp_file_lyric_aligned = self.path_temp_dir / "lyric_aligned.txt"
 

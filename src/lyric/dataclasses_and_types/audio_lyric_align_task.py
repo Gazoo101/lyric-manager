@@ -25,14 +25,15 @@ class AudioLyricAlignTask:
     artist: float                   = field(init=False)
     song_name: float                = field(init=False)
     lyric_text_raw: str             = ""                            # Local .txt, Genius DB, or other source
-    lyric_text_sanitized: list[str] = field(default_factory=list)   # Individual lines of lyrics, used for re-assembling the json/timing .aligned_lyrics
-    lyric_text_expanded:  list[str] = field(default_factory=list)   # Detected and replaced {xxxx|4} with xxxx xxxx xxxx xxxx
+    lyric_text_sanitized: str       = ""                            # Individual lines of lyrics, used for re-assembling the json/timing .aligned_lyrics
+    lyric_text_expanded: str        = ""                            # Detected and replaced {xxxx|4} with xxxx xxxx xxxx xxxx
+    lyric_lines_expanded: list[str] = field(default_factory=list)
     lyric_text_alignment_ready: str = ""                            # Lyric text more suitable for NUSAutoAlignLyrix
 
     # Turn into Enum
     lyric_source: LyricFetcherType  = LyricFetcherType.Disabled
 
-    # Whether [8x], [16x], (4x) or (10x) is in the raw lyrics
+    # Whether [8x], [16x], (4x) or (10x) is in the raw lyrics - actually {} I think...?
     detected_multiplier: bool       = False
 
     lyric_validity: LyricValidity = LyricValidity.NotSet

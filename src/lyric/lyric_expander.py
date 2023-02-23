@@ -20,10 +20,16 @@ class LyricExpander():
         self.compiled = re.compile(brackets_re)
 
 
-    def expand_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask):
+    def expand_lyrics(self, filename: str, lyrics: str):
+        """
+        
+        Input is one long connected text string...
+        
+        """
 
         # Re-connect all data
-        lyrics_expanded = "\n".join(audio_lyric_align_task.lyric_text_sanitized)
+        #lyrics_expanded = "\n".join(audio_lyric_align_task.lyric_text_sanitized) # no longer reconnect
+        lyrics_expanded = lyrics
 
         match = self.compiled.search(lyrics_expanded)
 
@@ -34,8 +40,7 @@ class LyricExpander():
             # instead the full match.
             num_groups = len(match.groups())
             if num_groups != 2:
-                full_filename = audio_lyric_align_task.path_to_audio_file.stem
-                logging.warning(f"'{full_filename}' contained group mismatch.")
+                logging.warning(f"'{filename}' contained group mismatch.")
                 logging.warning(f"Mixmatch: {match.group(0)}")
                 continue
 
@@ -57,10 +62,4 @@ class LyricExpander():
             lyrics_expanded = lyric_expanded_partial
             match = self.compiled.search(lyrics_expanded)
 
-        # Split into strings and remove empty ones again
-        lyrics_expanded_split = lyrics_expanded.splitlines()
-
-        # Remove empty lines
-        lyrics_expanded_split = [lyric_line for lyric_line in lyrics_expanded_split if lyric_line]
-
-        return lyrics_expanded_split
+        return lyrics_expanded

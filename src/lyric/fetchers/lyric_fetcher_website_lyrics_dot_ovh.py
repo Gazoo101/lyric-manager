@@ -1,7 +1,7 @@
 # Python
 from __future__ import annotations
 from pathlib import Path
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Tuple
 
 # 3rd Party
 
@@ -10,7 +10,8 @@ from .lyric_fetcher_interface import LyricFetcherInterface
 from ..dataclasses_and_types import LyricFetcherType
 
 if TYPE_CHECKING:
-    from audio_lyric_align_task import AudioLyricAlignTask
+    from ..dataclasses_and_types import AudioLyricAlignTask
+    from ..dataclasses_and_types import LyricValidity
 
 
 class LyricFetcherWebsiteLyricsDotOvh(LyricFetcherInterface):
@@ -26,7 +27,7 @@ class LyricFetcherWebsiteLyricsDotOvh(LyricFetcherInterface):
         super().__init__(LyricFetcherType.Website_LyricsDotOvh, ".ovh", path_to_working_dir)
 
 
-    def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask):
+    def _fetch_lyrics_raw(self, audio_lyric_align_task:AudioLyricAlignTask) -> Tuple[str, LyricValidity]:
         raise NotImplementedError
     
     def sanitize_raw_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> List[str]:

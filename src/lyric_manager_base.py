@@ -30,6 +30,7 @@ from .lyric.fetchers import LyricFetcherPyPiLyricsExtractor
 from .lyric.fetchers import LyricFetcherLocalFile
 from .lyric.fetchers import LyricFetcherWebsiteLyricsDotOvh
 from .lyric.fetchers import LyricFetcherInterface
+from .lyric.fetchers import Lyrics
 
 from .lyric.aligners import LyricAlignerDisabled
 from .lyric.aligners import LyricAlignerNUSAutoLyrixAlignOffline
@@ -123,9 +124,19 @@ class LyricManagerBase:
         }
 
         if type == LyricFetcherType.Pypi_LyricsGenius:
+            if settings.lyric_fetching.genius_token is None:
+                logging.warning("Pypi_LyricsGenius source requires genius token to be defined.")
+                logging.warning("LyricFetcher Pypi_LyricsGenius could not be instanitated.")
+                return None
+
             lyric_fetcher_parameters["token"] = settings.lyric_fetching.genius_token
-            #lyric_fetcher_parameters["path_to_data"] = self.path_to_working_directory # ??? wtf is this?
         elif type == LyricFetcherType.Pypi_LyricsExtractor:
+            if settings.lyric_fetching.google_custom_search_api_key is None or \
+               settings.lyric_fetching.google_custom_search_engine_id is None:
+                logging.warning("PyPi_LyricsExtractor source requires api key and engine id to be defined.")
+                logging.warning("LyricFetcher Pypi_LyricsExtractor could not be instanitated.")
+                return None
+
             lyric_fetcher_parameters["google_custom_search_api_key"] = settings.lyric_fetching.google_custom_search_api_key
             lyric_fetcher_parameters["google_custom_search_engine_id"] = settings.lyric_fetching.google_custom_search_engine_id
         
@@ -141,7 +152,9 @@ class LyricManagerBase:
         if type == LyricAlignerType.NUSAutoLyrixAlignOffline:
             lyric_aligner_parameters["path_to_aligner"] = settings.lyric_alignment.NUSAutoLyrixAlign_path
             lyric_aligner_parameters["path_to_output_dir"] = settings.lyric_alignment.NUSAutoLyrixAlign_working_directory
-            raise Exception("This has yet to be fixed - the outputdir doesn't exist and NUSAutoLyrix align likely needs 2 dirs.")
+            
+            # think about this...
+            #raise Exception("This has yet to be fixed - the outputdir doesn't exist and NUSAutoLyrix align likely needs 2 dirs.")
 
         return self.factory_lyric_aligner.create(type, **lyric_aligner_parameters)
 
@@ -178,22 +191,23 @@ class LyricManagerBase:
         elif DeveloperOptions.execution_mode == DeveloperOptions.ExecutionMode.LyricParsing:
             pass
 
-    
-    def _setup_folders(self, settings: Settings):
-        """ Explain that this is a separate function as both GUI/CLI should call it, and not in the constructor :/ """
 
-        if settings.data.output.path_to_working_directory:
-            settings.data.output.path_to_working_directory.mkdir(exist_ok=True)
+    # Now handled in constructor.
+    # def _setup_folders(self, settings: Settings):
+    #     """ Explain that this is a separate function as both GUI/CLI should call it, and not in the constructor :/ """
+
+    #     if settings.data.output.path_to_working_directory:
+    #         settings.data.output.path_to_working_directory.mkdir(exist_ok=True)
         
-        if settings.data.output.path_to_reports:
-            settings.data.output.path_to_reports.mkdir(exist_ok=True)
+    #     if settings.data.output.path_to_reports:
+    #         settings.data.output.path_to_reports.mkdir(exist_ok=True)
         
-        if settings.data.output.aligned_lyrics_file_copy_mode == FileCopyMode.SeparateDirectory:
-            if settings.data.output.path_to_output_aligned_lyrics:
-                settings.data.output.path_to_output_aligned_lyrics.mkdir(exist_ok=True)
-            else:
-                logging.error("Aligned lyrics are expected to be copied, yet no path for the destination is available")
-                raise Exception("Aligned lyrics are expected to be copied, yet no path for the destination is available")
+    #     if settings.data.output.aligned_lyrics_file_copy_mode == FileCopyMode.SeparateDirectory:
+    #         if settings.data.output.path_to_output_aligned_lyrics:
+    #             settings.data.output.path_to_output_aligned_lyrics.mkdir(exist_ok=True)
+    #         else:
+    #             logging.error("Aligned lyrics are expected to be copied, yet no path for the destination is available")
+    #             raise Exception("Aligned lyrics are expected to be copied, yet no path for the destination is available")
 
     
     def fetch_and_align_lyrics(self,
@@ -207,14 +221,18 @@ class LyricManagerBase:
         # Construct fetchers and aligners.
         lyric_fetchers = []
         for lyric_fetcher_type in settings.lyric_fetching.sources:
-            lyric_fetchers.append(self._create_lyric_fetcher(lyric_fetcher_type, settings))
+
+            # Instantiation of lyric fetchers may fail if various API tokens are missing.
+            lyric_fetcher = self._create_lyric_fetcher(lyric_fetcher_type, settings)
+            if lyric_fetcher:
+                lyric_fetchers.append(lyric_fetcher)
 
         lyric_aligner = self._create_lyric_aligner(settings.lyric_alignment.method, settings)
 
 
 
         # This should probably occur in the LyricManager constructor!
-        self._setup_folders(settings)
+        #self._setup_folders(settings)
         # if settings.data.output.path_to_output_files:
         #     settings.data.path_to_output_files.mkdir(exist_ok=True)
 
@@ -223,6 +241,7 @@ class LyricManagerBase:
         for path in settings.data.input.paths_to_process:
             if not path.exists():
                 logging.info(f"Provided path to process '{path}' not found. Skipping it.")
+                continue
 
             paths_to_process_valid.append(path)
 
@@ -319,38 +338,43 @@ class LyricManagerBase:
         The order of the lyric fetches matters as function will accept the first valid source available.
         """
         lyric_fetcher: LyricFetcherInterface
-        lyric_text_raw: str
-        lyric_validity: LyricValidity
         lyric_source = None
         for lyric_fetcher in lyric_fetchers:
 
             # Fetcher currently writes previously fetched copies to disk. This should perhaps
             # be elevated/exposed to this level.
-            lyric_text_raw, lyric_validity = lyric_fetcher.fetch_lyrics(lyric_align_task)
+            lyrics: Lyrics = lyric_fetcher.fetch_lyrics(lyric_align_task)
             lyric_source = lyric_fetcher.type
 
             # Source of lyrics found
-            if lyric_text_raw:
+            if lyrics.validity is LyricValidity.Valid:
                 break
 
-        if not lyric_text_raw:
-            logging.warning(f"No lyric source found for: {lyric_align_task.path_to_audio_file}")
+        if lyrics.validity is not LyricValidity.Valid:
+            logging.warning(f"No valid lyric source found for: {lyric_align_task.path_to_audio_file}")
+            # Add additional info here for what *was* found...
             return lyric_align_task
         
-        lyric_align_task.lyric_text_raw = lyric_text_raw
-        lyric_align_task.lyric_validity = lyric_validity
+        lyric_align_task.lyric_text_raw = lyrics.raw
+        lyric_align_task.lyric_text_sanitized = lyrics.sanitized
+        lyric_align_task.lyric_validity = lyrics.validity
         lyric_align_task.lyric_source = lyric_source
 
-        if lyric_validity is not LyricValidity.Valid:
-            logging.warning(f"Non-valid lyrics found for: {lyric_align_task.path_to_audio_file}. Will not sanitize.")
-            return lyric_align_task
+        # if lyric_validity is not LyricValidity.Valid:
+        #     logging.warning(f"Non-valid lyrics found for: {lyric_align_task.path_to_audio_file}. Will not sanitize.")
+        #     return lyric_align_task
 
         # We must detect multipliers before sanitizing the lyrics...
         lyric_align_task.detected_multiplier = self.lyric_sanitizer.contains_multipliers(lyric_align_task.lyric_text_raw)
 
-        lyric_align_task.lyric_text_sanitized = lyric_fetcher.sanitize_raw_lyrics(lyric_align_task)
+        lyric_align_task.lyric_text_expanded = self.lyric_expander.expand_lyrics(lyric_align_task.path_to_audio_file.stem, lyric_align_task.lyric_text_sanitized)
 
-        lyric_align_task.lyric_text_expanded = self.lyric_expander.expand_lyrics(lyric_align_task)
+        # Separate full lyric string into a list of strings
+        ggg = lyric_align_task.lyric_text_expanded.splitlines()
+
+        # Remove empty lines
+        ggg = [lyric_line for lyric_line in ggg if lyric_line]
+        lyric_align_task.lyric_lines_expanded = ggg
 
         return lyric_align_task
     
@@ -367,7 +391,7 @@ class LyricManagerBase:
         """
 
         # Most of this is to make the task of matching timing back to words a lot easier.
-        alignment_lyrics = self.lyric_matcher.convert_lyrics_string_to_match_lyrics(lyric_align_task.lyric_text_expanded)
+        alignment_lyrics = self.lyric_matcher.convert_lyrics_string_to_match_lyrics(lyric_align_task.lyric_lines_expanded)
 
         lyrics_alignment_ready = []
 

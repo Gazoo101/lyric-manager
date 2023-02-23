@@ -3,7 +3,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 # 3rd Party
 from PySide6 import QtCore, QtWidgets, QtGui
@@ -20,6 +20,8 @@ from src.gui import LoggingHandlerSignal
 
 from src.lyric_manager_base import LyricManagerBase
 from src.lyric_processing_config import Settings
+from src.lyric.dataclasses_and_types import LyricFetcherType
+from src.lyric.dataclasses_and_types import LyricAlignerType
 
 def bind_class_property_to_qt_widget_property(objectName, propertyName):
     """ Binds a Python class property to a given Qt widget property.
@@ -105,10 +107,18 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # For more complicated things, this might not work as easily...
         #self.test_config = Config() # no - undo...
 
-        self._setup_ui("./resources/lyric_manager.ui")
+        self._setup_ui("./resources/lyric_manager_v2.ui")
 
         q_rect_geometry = self.q_settings.value("windowGeometry", self.widget_main_window.geometry())
         self.widget_main_window.setGeometry(q_rect_geometry)
+
+        # check if none?
+        a = self.q_settings.value("Processing/FetcherTypes", [LyricFetcherType.LocalFile])
+        b = self.q_settings.value("Processing/AlignerType", LyricAlignerType.Disabled)
+        c = self.q_settings.value("Processing/FoldersToProcess", [])
+
+        test = self.q_settings.value("glrop")
+        self._set_selected_lyric_fetcher_types(test)
 
         self.widget_main_window.setWindowTitle(f"LyricManager v. {DeveloperOptions.version}")
 
@@ -169,12 +179,31 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self.widget_lyric_aligners.setSelectionMode( QAbstractItemView.SingleSelection )
 
         for key, fetcher in self.factory_lyric_fetcher.builders.items():
-            self._add_fetcher(str(key))
+            self._add_fetcher(key.name)
 
         for key, aligner in self.factory_lyric_aligner.builders.items():
-            self._add_aligner(str(key))
+            self._add_aligner(key.name)
+
+        # things = self.widget_lyric_aligners.count()
+        # #ttt = self.widget_lyric_aligners.itemAt(0)
+        # ttt = self.widget_lyric_aligners.itemAt(40,30)
+        # ttt1 = self.widget_lyric_aligners.item(0)
+        # ttt2 = self.widget_lyric_aligners.item(1)
+        # ttt3 = self.widget_lyric_aligners.item(2)
+
+        # aggagag = self.widget_lyric_aligners.itemWidget(ttt1)
+
+        # dasds = ttt2.name()
+        # contents = ttt3.text()
+
+        # ttt4 = self.widget_lyric_aligners.item(3)
+        # ttt5 = self.widget_lyric_aligners.item(4)
 
         #self.widget_lyric_aligners.item(0).setChecked( True )
+
+        self.widget_progress_bar_overall: QProgressBar = self.widget_main_window.findChild(QProgressBar, "progressBar_overall")
+        self.widget_progress_bar_overall.setValue(0)
+        self.widget_progress_bar_overall.setFormat("- Ready -")
 
         self._setup_widget_processed_table()
 
@@ -199,8 +228,12 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
 
     def start_process(self):
+
+        selected_fetcher_types = self._get_selected_lyric_fetcher_types()
+        selected_aligner_type = self._get_selected_lyric_aligner_type()
+        paths_to_process = self.widget_local_data_sources.get_selected_items()
         
-        config = Config()
+        config = Settings()
 
         # xplain that we package gui things into the config file hea!
         config.data.recursively_parse_audio_file_path = self.recursively_parse_folders_to_process
@@ -232,6 +265,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # TODO: Figure out how to actually get the pointer to this radio button once the list construction is complete
         radio_button.setChecked( True )
 
+
     def _setup_widget_processed_table(self):
 
         # Sources:
@@ -245,6 +279,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         progress_bar = QProgressBar()
         progress_bar.setValue(26)
+        progress_bar.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
+        
 
         self.widget_songs_processed.setCellWidget(0,2, progress_bar)
 
@@ -298,23 +334,31 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
                 # application itself will soon cease to exist.
                 if event.key() == QtCore.Qt.Key_Escape:
                     # Expected to pretty much immediately trigger the QtCore.QEvent.Close case below.
-
-                    # Although .saveGeometry() and .restoreGeometry() appear to be the preferred approach to saving and
-                    # restoring window position and size, it appears have issues working across multiple screens.
-                    # Unfortunately the two functions automatically convert the QRect object to/from byte-code, so the
-                    # problem isn't easily further diagnosed. Hence, we instead load/save the raw Geometry Rect object.
-                    #flux = self.widget_main_window.saveGeometry()
-
-                    window_geometry = self.widget_main_window.geometry()
-
-                    self.q_settings.setValue("WindowGeometry", window_geometry)
-                    self.q_settings.setValue("WorkingDirectory", "./WorkingDirectory")
-
                     self.widget_main_window.close() 
 
                 self.key_press_event(event)
             elif event.type() == QtCore.QEvent.Close:
-                #self._write_settings()
+                
+                # Although .saveGeometry() and .restoreGeometry() appear to be the preferred approach to saving and
+                # restoring window position and size, it appears have issues working across multiple screens.
+                # Unfortunately the two functions automatically convert the QRect object to/from byte-code, so the
+                # problem isn't easily further diagnosed. Hence, we instead load/save the raw Geometry Rect object.
+                #flux = self.widget_main_window.saveGeometry()
+
+                window_geometry = self.widget_main_window.geometry()
+
+                self.q_settings.setValue("WindowGeometry", window_geometry)
+                self.q_settings.setValue("WorkingDirectory", "./WorkingDirectory")
+
+                # Save processing-related settings...
+                selected_fetcher_types = self._get_selected_lyric_fetcher_types()
+                selected_aligner_type = self._get_selected_lyric_aligner_type()
+                paths_to_process = self.widget_local_data_sources.get_selected_items()
+
+                self.q_settings.setValue("Processing/FetcherTypes", selected_fetcher_types)
+                self.q_settings.setValue("Processing/AlignerType", selected_aligner_type)
+                self.q_settings.setValue("Processing/FoldersToProcess", paths_to_process)
+
                 self.is_running = False
 
         if self.is_running:
@@ -328,6 +372,87 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         """ Placeholder for future key event handling. """
         pass
 
+
+    def _get_selected_lyric_aligner_type(self):
+        """ Returns the selected lyric aligner. """
+
+        # Not ideal for performance reasons
+        for index in range(self.widget_lyric_aligners.count()):
+            item = self.widget_lyric_aligners.item(index)
+            widget_radio_button: QRadioButton = self.widget_lyric_aligners.itemWidget(item)
+
+            if widget_radio_button.isChecked():
+                text = widget_radio_button.text()
+                return LyricAlignerType[text]
+        
+        # Technically, QRadioButton should prevent the code from ever reaching this point
+        return LyricAlignerType.Disabled
+
+
+    def _set_selected_lyric_aligner_type(self, lyric_aligner_type: LyricAlignerType):
+        """ blrup """
+
+        # Not ideal for performance reasons
+        for index in range(self.widget_lyric_aligners.count()):
+            item = self.widget_lyric_aligners.item(index)
+            widget_radio_button: QRadioButton = self.widget_lyric_aligners.itemWidget(item)
+
+            text = widget_radio_button.text()
+            aligner_type = LyricAlignerType[text]
+
+            if aligner_type == lyric_aligner_type:
+                widget_radio_button.setChecked(True)
+        
+        # Technically, QRadioButton should prevent the code from ever reaching this point
+        return LyricAlignerType.Disabled
+
+
+    def _get_selected_lyric_fetcher_types(self) -> List[LyricFetcherType]:
+        """ Returns a list of all selected lyric fetchers. """
+        fetchers = []
+
+        model = self.widget_lyric_sources.model()
+        for index in range(model.rowCount()):
+
+            tt = model.index(index)
+            item = model.itemData(tt)
+
+            # At the time of writing, it's not exactly clear how to "properly" index into the derived QListWidget's
+            # Model. These hard-coded index numbers (0 and 10) are suboptimal.
+            item_name = item[0]
+            item_checked = (item[10] == QtCore.Qt.Checked.value)
+
+            # Skip any items that aren't checked.
+            if not item_checked:
+                continue
+
+            fetchers.append(LyricFetcherType[item_name])
+
+        return fetchers
+    
+
+    def _set_selected_lyric_fetcher_types(self, fetcher_types: List[LyricFetcherType]):
+        #
+        # FIX - DOESN't WORK
+        # 
+
+        model = self.widget_lyric_sources.model()
+        for index in range(model.rowCount()):
+
+            tt = model.index(index)
+            item = model.itemData(tt)
+
+            # At the time of writing, it's not exactly clear how to "properly" index into the derived QListWidget's
+            # Model. These hard-coded index numbers (0 and 10) are suboptimal.
+            item_name = item[0]
+            item_checked = (item[10] == QtCore.Qt.Checked.value)
+
+            item_type = LyricFetcherType[item_name]
+
+            if item_type in fetcher_types:
+                item[10] = QtCore.Qt.Checked.value
+            else:
+                item[10] = QtCore.Qt.Unchecked.value
 
 
 def main():

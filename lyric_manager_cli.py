@@ -70,7 +70,8 @@ if __name__ == "__main__":
     # incoming_parameters = ["-h"]
     # incoming_parameters = ["--version"]
     #incoming_parameters = ["settings.yaml"]
-    incoming_parameters = ["settings-scenario1.yaml"]
+    #incoming_parameters = ["settings-scenario1.yaml"]
+    incoming_parameters = ["settings-Scenario-LocalLyricsWithExpansion.yaml"]
     #incoming_parameters = ["settings-genius-all-songs.yaml"]
 
     LyricManagerCommandLineInterface(incoming_parameters)

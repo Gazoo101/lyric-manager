@@ -1,5 +1,3 @@
-from .yaml_parser import YamlParser
-from .yaml_parser import FileOutputLocation
 from .file_operations import FileOperations
 
 from .text_simplifier import simplify

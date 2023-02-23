@@ -20,5 +20,5 @@ class LyricFetcherDisabled(LyricFetcherInterface):
     def __init__(self):
         super()
 
-    def fetch_lyrics(self, audio_lyric_align_task):
+    def _fetch_lyrics_raw(self, audio_lyric_align_task):
         return ""
