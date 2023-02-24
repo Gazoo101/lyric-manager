@@ -1,5 +1,6 @@
 # Python
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
@@ -14,6 +15,10 @@ from PySide6 import QtCore, QtGui
 
 # Guiding example: https://stackoverflow.com/questions/25603134/pyside-drag-and-drop-files-into-qlistwidget
 
+@dataclass
+class CheckedPath():
+    path: Path
+    isChecked: bool = False
 
 class QListWidgetDragAndDrop(QListWidget):
     """ A customized QListWidget which provides drag-and-drop support, and empty placeholder text.
@@ -31,7 +36,23 @@ class QListWidgetDragAndDrop(QListWidget):
         self._placeholder_text = ""
 
 
-    def add_paths(self, paths: List[Path]):
+    def add_paths(self, checked_paths: List[CheckedPath]):
+        """ Adds every Path in the given list to the QListWidget, as a QListWidgetItem. """
+        for one_path in checked_paths:
+
+            item = QListWidgetItem(str(one_path.path))
+    
+            item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable )
+
+            if one_path.isChecked:
+                item.setCheckState(QtCore.Qt.Checked)
+            else:
+                item.setCheckState(QtCore.Qt.Unchecked)
+
+            self.addItem(item)
+
+
+    def add_paths_checked(self, paths: List[Path]):
         """ Adds every Path in the given list to the QListWidget, as a QListWidgetItem. """
         for one_path in paths:
 
@@ -50,7 +71,7 @@ class QListWidgetDragAndDrop(QListWidget):
             self.takeItem(self.row(item))
     
 
-    def get_selected_items(self):
+    def get_checked_paths(self):
         """ Returns all items. """
         all_items = []
 
@@ -63,15 +84,33 @@ class QListWidgetDragAndDrop(QListWidget):
             # At the time of writing, it's not exactly clear how to "properly" index into the derived QListWidget's
             # Model. These hard-coded index numbers (0 and 10) are suboptimal.
             item_name = item[0]
-            item_checked = (item[10] == QtCore.Qt.Checked)
+            item_checked = (item[10] == QtCore.Qt.Checked.value)
 
             # Skip any items that aren't checked.
             if not item_checked:
                 continue
 
-            logging.info(f"Selected item: {item}")
-
             all_items.append(Path(item_name))
+
+        return all_items
+    
+
+    def get_paths(self) -> List[CheckedPath]:
+        """ Returns all items. """
+        all_items = []
+
+        model = self.model()
+        for index in range(model.rowCount()):
+
+            tt = model.index(index)
+            item = model.itemData(tt)
+
+            # At the time of writing, it's not exactly clear how to "properly" index into the derived QListWidget's
+            # Model. These hard-coded index numbers (0 and 10) are suboptimal.
+            item_name = item[0]
+            item_checked = (item[10] == QtCore.Qt.Checked.value)
+
+            all_items.append(CheckedPath(Path(item_name), item_checked))
 
         return all_items
 
@@ -109,7 +148,7 @@ class QListWidgetDragAndDrop(QListWidget):
                     paths_to_folders.append(path)
 
             self.signal_file_dropped.emit(links)
-            self.add_paths(paths_to_folders)
+            self.add_paths_checked(paths_to_folders)
         else:
             event.ignore()
 

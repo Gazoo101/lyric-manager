@@ -78,6 +78,18 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         bind_class_property_to_qt_widget_property("checkBox_overwrite_existing_generated_files", "checked")
 
     
+    def _get_checkbox_settings_value_or_default(self, q_settings_name: str, widget_q_checkbox_name):
+        """ Helps set default via checkbox default"""
+
+        # This allows for a default setting to pervade
+        widget_q_checkbox: QCheckBox = self.widget_main_window.findChild(QCheckBox, widget_q_checkbox_name)
+        check_state = self.q_settings.value(q_settings_name, widget_q_checkbox.checkState())
+        widget_q_checkbox.setCheckState(check_state)
+
+
+    def _set_checkbox_settings_value(self, q_settings_name: str, widget_q_checkbox_name):
+        widget_q_checkbox: QCheckBox = self.widget_main_window.findChild(QCheckBox, widget_q_checkbox_name)
+        self.q_settings.setValue(q_settings_name, widget_q_checkbox.checkState())
 
 
     def __init__(self, parent: Optional[QtCore.QObject] = ...) -> None:
@@ -112,13 +124,16 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         q_rect_geometry = self.q_settings.value("windowGeometry", self.widget_main_window.geometry())
         self.widget_main_window.setGeometry(q_rect_geometry)
 
-        # check if none?
-        a = self.q_settings.value("Processing/FetcherTypes", [LyricFetcherType.LocalFile])
-        b = self.q_settings.value("Processing/AlignerType", LyricAlignerType.Disabled)
-        c = self.q_settings.value("Processing/FoldersToProcess", [])
+        fetcher_types = self.q_settings.value("Processing/FetcherTypes", [LyricFetcherType.LocalFile])
+        aligner_type = self.q_settings.value("Processing/AlignerType", LyricAlignerType.Disabled)
+        folders_to_process = self.q_settings.value("Processing/FoldersToProcess", list())
 
-        test = self.q_settings.value("glrop")
-        self._set_selected_lyric_fetcher_types(test)
+        self._get_checkbox_settings_value_or_default("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
+        self._get_checkbox_settings_value_or_default("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
+
+        self._set_selected_lyric_fetcher_types(fetcher_types)
+        self._set_selected_lyric_aligner_type(aligner_type)
+        self.widget_local_data_sources.add_paths(folders_to_process)
 
         self.widget_main_window.setWindowTitle(f"LyricManager v. {DeveloperOptions.version}")
 
@@ -231,7 +246,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         selected_fetcher_types = self._get_selected_lyric_fetcher_types()
         selected_aligner_type = self._get_selected_lyric_aligner_type()
-        paths_to_process = self.widget_local_data_sources.get_selected_items()
+        paths_to_process = self.widget_local_data_sources.get_checked_paths()
         
         config = Settings()
 
@@ -353,11 +368,15 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
                 # Save processing-related settings...
                 selected_fetcher_types = self._get_selected_lyric_fetcher_types()
                 selected_aligner_type = self._get_selected_lyric_aligner_type()
-                paths_to_process = self.widget_local_data_sources.get_selected_items()
+                #paths_to_process = self.widget_local_data_sources.get_checked_paths()
+                paths_to_process = self.widget_local_data_sources.get_paths()
 
                 self.q_settings.setValue("Processing/FetcherTypes", selected_fetcher_types)
                 self.q_settings.setValue("Processing/AlignerType", selected_aligner_type)
                 self.q_settings.setValue("Processing/FoldersToProcess", paths_to_process)
+
+                self._set_checkbox_settings_value("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
+                self._set_checkbox_settings_value("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
 
                 self.is_running = False
 
@@ -432,27 +451,23 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
     
 
     def _set_selected_lyric_fetcher_types(self, fetcher_types: List[LyricFetcherType]):
-        #
-        # FIX - DOESN't WORK
-        # 
+        """ Checks any lyric fetcher types provided in the list.
+        
+        TODO: Iterating over the widget items isn't ideal, we should probably be iterating over the underlying model,
+        but it wasn't easy finding any code/examples as for how to do this with PySide6.
+        """
 
-        model = self.widget_lyric_sources.model()
-        for index in range(model.rowCount()):
+        for index in range(self.widget_lyric_sources.count()):
+            item = self.widget_lyric_sources.item(index)
 
-            tt = model.index(index)
-            item = model.itemData(tt)
+            text = item.text()
+            item_fetcher_type = LyricFetcherType[text]
 
-            # At the time of writing, it's not exactly clear how to "properly" index into the derived QListWidget's
-            # Model. These hard-coded index numbers (0 and 10) are suboptimal.
-            item_name = item[0]
-            item_checked = (item[10] == QtCore.Qt.Checked.value)
-
-            item_type = LyricFetcherType[item_name]
-
-            if item_type in fetcher_types:
-                item[10] = QtCore.Qt.Checked.value
-            else:
-                item[10] = QtCore.Qt.Unchecked.value
+            state_to_set = QtCore.Qt.Unchecked
+            if item_fetcher_type in fetcher_types:
+                state_to_set = QtCore.Qt.Checked
+            
+            item.setCheckState(state_to_set)
 
 
 def main():
