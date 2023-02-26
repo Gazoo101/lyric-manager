@@ -32,6 +32,7 @@ from .lyric.fetchers import LyricFetcherWebsiteLyricsDotOvh
 from .lyric.fetchers import LyricFetcherInterface
 from .lyric.fetchers import Lyrics
 
+from .lyric.aligners import LyricAlignerInterface
 from .lyric.aligners import LyricAlignerDisabled
 from .lyric.aligners import LyricAlignerNUSAutoLyrixAlignOffline
 from .lyric.aligners import LyricAlignerNUSAutoLyrixAlignOnline
@@ -44,6 +45,7 @@ from src.lyric_processing_config import Settings
 from src.lyric_processing_config import FileCopyMode
 
 if TYPE_CHECKING:
+    from .lyric.aligners import WordAndTiming
     from .cli import ProgressItemGeneratorCLI
     from .gui import ProgressItemGeneratorGUI
 
@@ -192,30 +194,18 @@ class LyricManagerBase:
             pass
 
 
-    # Now handled in constructor.
-    # def _setup_folders(self, settings: Settings):
-    #     """ Explain that this is a separate function as both GUI/CLI should call it, and not in the constructor :/ """
-
-    #     if settings.data.output.path_to_working_directory:
-    #         settings.data.output.path_to_working_directory.mkdir(exist_ok=True)
-        
-    #     if settings.data.output.path_to_reports:
-    #         settings.data.output.path_to_reports.mkdir(exist_ok=True)
-        
-    #     if settings.data.output.aligned_lyrics_file_copy_mode == FileCopyMode.SeparateDirectory:
-    #         if settings.data.output.path_to_output_aligned_lyrics:
-    #             settings.data.output.path_to_output_aligned_lyrics.mkdir(exist_ok=True)
-    #         else:
-    #             logging.error("Aligned lyrics are expected to be copied, yet no path for the destination is available")
-    #             raise Exception("Aligned lyrics are expected to be copied, yet no path for the destination is available")
-
     
     def fetch_and_align_lyrics(self,
         settings: Settings,
-        loop_wrapper: Union[ProgressItemGeneratorCLI, ProgressItemGeneratorGUI]):
-        """ Fetches and aligns lyrics using various external modules.
+        loop_wrapper: Union[ProgressItemGeneratorCLI, ProgressItemGeneratorGUI]) -> list[AudioLyricAlignTask]:
+        """ Fetches and aligns lyrics using selected fetchers and aligner as defined by the settings parameter.
 
-            See the config file code for what the configs mean...
+        Args:
+            settings: Settings object containing all settings required to fully execute fetching and aligning of lyrics
+            loop_wrapper: Encapsulates communicating progress either via command-line or graphical user-interface while
+                the fetching and alignment code is executed.
+        Returns:
+            A list of AudioLyricAlignTask objects, either completed or failed.
         """
 
         # Construct fetchers and aligners.
@@ -228,13 +218,6 @@ class LyricManagerBase:
                 lyric_fetchers.append(lyric_fetcher)
 
         lyric_aligner = self._create_lyric_aligner(settings.lyric_alignment.method, settings)
-
-
-
-        # This should probably occur in the LyricManager constructor!
-        #self._setup_folders(settings)
-        # if settings.data.output.path_to_output_files:
-        #     settings.data.path_to_output_files.mkdir(exist_ok=True)
 
 
         paths_to_process_valid = []
@@ -258,25 +241,17 @@ class LyricManagerBase:
         #   - Debugging can be more easily focused on one single failing functionality
         #   - Further encapsulation is simpler.
 
-        tasks_with_lyrics = []
-        tasks_with_lyrics_valid = []
-
-
-
-        #with logging_redirect_tqdm():
+        tasks_with_lyrics: list[AudioLyricAlignTask] = []
+        tasks_with_lyrics_valid: list[AudioLyricAlignTask] = []
 
         for task in loop_wrapper(tasks, desc="Fetching, validating, and sanitizing lyrics"):
             task_with_lyrics = self._fetch_and_sanitize_lyrics(lyric_fetchers, task)
             tasks_with_lyrics.append(task_with_lyrics)
 
-        # Report on lyric validity - Superseded by 
-        #self._print_lyric_validity(tasks_with_lyrics)
 
         # For now we only keep (probably) valid lyrics
         tasks_with_lyrics_valid = [task for task in tasks_with_lyrics if task.lyric_validity == LyricValidity.Valid]
 
-        # Move to end
-        #self._print_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
 
         # Because lyric alignment is fairly time-consuming (~0.5 minute processing per 1 minute audio), we write the
         # results to disk in the same loop to ensure nothing is lost in case of unexpected errors.
@@ -288,15 +263,14 @@ class LyricManagerBase:
 
         self._create_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
 
-        horse = 2
+        return tasks_with_lyrics
 
 
-    def _get_audio_files_found_in_paths(self, all_paths: list[Path], recursive: bool):
-
+    def _get_audio_files_found_in_paths(self, all_paths: list[Path], recursive: bool) -> list[Path]:
+        """ Returns all files with an .mp3 extension in the paths provided, potentially scanning in sub-folders. """
         all_audio_files = []
 
         for path in all_paths:
-
             audio_files_in_path = []
 
             if recursive:
@@ -315,7 +289,7 @@ class LyricManagerBase:
         return all_audio_files
     
 
-    def _create_audio_lyric_align_tasks_from_paths(self, paths_to_audio_files: list):
+    def _create_audio_lyric_align_tasks_from_paths(self, paths_to_audio_files: list) -> list[AudioLyricAlignTask]:
         """ Turns a list of paths to audio files into AudioLyricAlignTask objects """
         lyric_align_tasks = []
 
@@ -370,17 +344,17 @@ class LyricManagerBase:
         lyric_align_task.lyric_text_expanded = self.lyric_expander.expand_lyrics(lyric_align_task.path_to_audio_file.stem, lyric_align_task.lyric_text_sanitized)
 
         # Separate full lyric string into a list of strings
-        ggg = lyric_align_task.lyric_text_expanded.splitlines()
+        lyric_text_expanded_split = lyric_align_task.lyric_text_expanded.splitlines()
 
         # Remove empty lines
-        ggg = [lyric_line for lyric_line in ggg if lyric_line]
-        lyric_align_task.lyric_lines_expanded = ggg
+        lyric_text_expanded_split = [lyric_line for lyric_line in lyric_text_expanded_split if lyric_line]
+        lyric_align_task.lyric_lines_expanded = lyric_text_expanded_split
 
         return lyric_align_task
     
 
-    def _align_lyrics(self, lyric_align_task: AudioLyricAlignTask, lyric_aligner, file_output_path: Path):
-        """A class for a user
+    def _align_lyrics(self, lyric_align_task: AudioLyricAlignTask, lyric_aligner: LyricAlignerInterface, file_output_path: Path):
+        """ A class for a user
 
         Args:
             - lyric_align_task -- The AudioLyricAlignTask to align, relies primarily on the .lyric_text_sanitized property.

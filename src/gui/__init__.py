@@ -1,3 +1,4 @@
+from .gui_worker import GuiWorker
 from .qlistwidget_drag_and_drop import QListWidgetDragAndDrop
 from .logging_handler_signal import LoggingHandlerSignal
 from .progress_item_generator_gui import ProgressItemGeneratorGUI

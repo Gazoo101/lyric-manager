@@ -7,21 +7,25 @@ from typing import Optional, List
 
 # 3rd Party
 from PySide6 import QtCore, QtWidgets, QtGui
-from PySide6.QtWidgets import QMainWindow, QListWidget, QPlainTextEdit, QListWidgetItem, QAbstractItemView
-from PySide6.QtWidgets import QRadioButton, QTableWidget, QProgressBar, QPushButton, QCheckBox
+from PySide6.QtWidgets import QMainWindow, QListWidget, QPlainTextEdit, QListWidgetItem, QAbstractItemView, QSplitter
+from PySide6.QtWidgets import QRadioButton, QTableWidget, QTableWidgetItem, QProgressBar, QPushButton, QCheckBox
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QDir, qDebug, QSettings
 
 # 1st Party
 from src.developer_options import DeveloperOptions
 
-from src.gui import QListWidgetDragAndDrop
+from src.gui import GuiWorker
 from src.gui import LoggingHandlerSignal
+from src.gui import ProgressItemGeneratorGUI
+from src.gui import QListWidgetDragAndDrop
+
 
 from src.lyric_manager_base import LyricManagerBase
 from src.lyric_processing_config import Settings
 from src.lyric.dataclasses_and_types import LyricFetcherType
 from src.lyric.dataclasses_and_types import LyricAlignerType
+from src.lyric.dataclasses_and_types import AudioLyricAlignTask
 
 def bind_class_property_to_qt_widget_property(objectName, propertyName):
     """ Binds a Python class property to a given Qt widget property.
@@ -119,22 +123,9 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # For more complicated things, this might not work as easily...
         #self.test_config = Config() # no - undo...
 
-        self._setup_ui("./resources/lyric_manager_v2.ui")
-
-        q_rect_geometry = self.q_settings.value("windowGeometry", self.widget_main_window.geometry())
-        self.widget_main_window.setGeometry(q_rect_geometry)
-
-        fetcher_types = self.q_settings.value("Processing/FetcherTypes", [LyricFetcherType.LocalFile])
-        aligner_type = self.q_settings.value("Processing/AlignerType", LyricAlignerType.Disabled)
-        folders_to_process = self.q_settings.value("Processing/FoldersToProcess", list())
-
-        self._get_checkbox_settings_value_or_default("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
-        self._get_checkbox_settings_value_or_default("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
-
-        self._set_selected_lyric_fetcher_types(fetcher_types)
-        self._set_selected_lyric_aligner_type(aligner_type)
-        self.widget_local_data_sources.add_paths(folders_to_process)
-
+        self._setup_ui("./resources/lyric_manager_v3.ui")
+        self._load_ui_settings()
+        
         self.widget_main_window.setWindowTitle(f"LyricManager v. {DeveloperOptions.version}")
 
         # Causes Qt to trigger this classes eventFilter() to handle incoming events. It's primarily used to respond
@@ -152,8 +143,9 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         signal_logger.emitter.log_message.connect(self.widget_log.appendPlainText)
         logging.getLogger().addHandler(signal_logger)
 
-
         logging.info("LyricManager Gui loaded.")
+
+        #self.start_processing()
 
 
     def _setup_ui(self, path_to_ui_file : str):
@@ -168,22 +160,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
             path_to_ui_file: Path to the .ui file to be loaded.
         """
         ### Static GUI Behavior
-        form = QFile(path_to_ui_file)
-        form.open(QFile.ReadOnly)
-
-        slicks = form.readAll()
-
-        with open(path_to_ui_file,"r") as f:
-            string = f.read()
-
-        qDebug("helpsors")
-
-        # checkBox_recursively_parse_folders_to_process
-        # checkBox_overwrite_existing_generated_files
-        
+        #qDebug("helpsors")
 
         self.widget_main_window : QMainWindow = QUiLoader().load(path_to_ui_file)
-        #self.widget_main_window : QMainWindow = QUiLoader().load(form)
+
+        self.widget_songs_processed: QTableWidget = self.widget_main_window.findChild(QTableWidget, "tableWidget_songs_processed")
 
         self.widget_log: QPlainTextEdit = self.widget_main_window.findChild(QPlainTextEdit, "plainTextEdit_log")
 
@@ -199,62 +180,154 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         for key, aligner in self.factory_lyric_aligner.builders.items():
             self._add_aligner(key.name)
 
-        # things = self.widget_lyric_aligners.count()
-        # #ttt = self.widget_lyric_aligners.itemAt(0)
-        # ttt = self.widget_lyric_aligners.itemAt(40,30)
-        # ttt1 = self.widget_lyric_aligners.item(0)
-        # ttt2 = self.widget_lyric_aligners.item(1)
-        # ttt3 = self.widget_lyric_aligners.item(2)
+        self.widget_splitter_horizontal: QSplitter = self.widget_main_window.findChild(QSplitter, "splitter_horizontal")
+        self.widget_splitter_vertical: QSplitter = self.widget_main_window.findChild(QSplitter, "splitter_vertical")
 
-        # aggagag = self.widget_lyric_aligners.itemWidget(ttt1)
-
-        # dasds = ttt2.name()
-        # contents = ttt3.text()
-
-        # ttt4 = self.widget_lyric_aligners.item(3)
-        # ttt5 = self.widget_lyric_aligners.item(4)
-
-        #self.widget_lyric_aligners.item(0).setChecked( True )
+        # Oddly, QSplitter's are basically invisible in their default state. We modify it's CSS a tad to make them
+        # visible.
+        self.widget_main_window.setStyleSheet("QSplitter::handle { border: 1px outset darkgrey; } ")
 
         self.widget_progress_bar_overall: QProgressBar = self.widget_main_window.findChild(QProgressBar, "progressBar_overall")
         self.widget_progress_bar_overall.setValue(0)
         self.widget_progress_bar_overall.setFormat("- Ready -")
 
-        self._setup_widget_processed_table()
-
         widget_start_processing = self.widget_main_window.findChild(QPushButton, "pushButton_start_processing")
-        widget_start_processing.clicked.connect(self.start_process)
 
         ### Dynamic GUI Behavior
         self.widget_local_data_sources = self._setup_widget_local_data_sources()
 
-        #self.checkbawks: QCheckBox = self.widget_main_window.findChild(QCheckBox, "checkBox_recursively_parse_folders_to_process")
-
-        #self.checkbawks.value()
-
-        horse = 2
-        
 
         # Set 'Delete' key to remove executable entries if the widget is active
         QtGui.QShortcut(QtGui.QKeySequence("Delete"), self.widget_local_data_sources, self.widget_local_data_sources.remove_selected_items, context=QtCore.Qt.WidgetShortcut)
 
 
         ### Slots and signals
+        widget_start_processing.clicked.connect(self.start_processing)
 
 
-    def start_process(self):
+    def _load_ui_settings(self):
+        """ Restores all GUI related settings, e.g. window position, checked settings, selected elements, etc. """
+        q_rect_geometry = self.q_settings.value("windowGeometry", self.widget_main_window.geometry())
+        self.widget_main_window.setGeometry(q_rect_geometry)
+
+        # Splitters do not yield a 'reasonable' default value at this point in the code (returning [0,0]). Rather than
+        # separating out this settings-loading, we opt to manually check if the splitter's values have been previously
+        # saved. More boiler-plate code unfortunately, but preferrable to splitting up the load save behavior.
+        # I assume it has something to do with Qt having yet to spawn the main window.
+        splitter_horizontal_geometry = self.q_settings.value("SplitterHorizontalGeometry", None)
+        if splitter_horizontal_geometry is not None:
+            # Attempts to type-hint 
+            splitter_horizontal_geometry = [int(i) for i in splitter_horizontal_geometry]
+            self.widget_splitter_horizontal.setSizes(splitter_horizontal_geometry)
+
+        splitter_vertical_geometry = self.q_settings.value("SplitterVerticalGeometry", None)
+        if splitter_vertical_geometry is not None:
+            splitter_vertical_geometry = [int(i) for i in splitter_vertical_geometry]
+            self.widget_splitter_vertical.setSizes(splitter_vertical_geometry)
+
+        fetcher_types = self.q_settings.value("Processing/FetcherTypes", [LyricFetcherType.LocalFile])
+        aligner_type = self.q_settings.value("Processing/AlignerType", LyricAlignerType.Disabled)
+
+        # While QSettings can manage creating an empty list as a default value, if it cannot find a QSettings entry, it
+        # stubbornly refuses to save an empty list as anything but '@Invalid()'. Passing "QVariantList" as type hint
+        # appears to crash Qt.
+        folders_to_process = self.q_settings.value("Processing/FoldersToProcess", None)
+        if folders_to_process is not None:
+            self.widget_local_data_sources.add_paths(folders_to_process)
+
+
+        self._get_checkbox_settings_value_or_default("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
+        self._get_checkbox_settings_value_or_default("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
+
+        self._set_selected_lyric_fetcher_types(fetcher_types)
+        self._set_selected_lyric_aligner_type(aligner_type)
+
+
+    def _save_ui_settings(self):
+        """ Updates self.q_settings with all GUI related settings so they'll be properly saved when the program exits. """
+        # Although .saveGeometry() and .restoreGeometry() appear to be the preferred approach to saving and
+        # restoring window position and size, it appears have issues working across multiple screens.
+        # Unfortunately the two functions automatically convert the QRect object to/from byte-code, so the
+        # problem isn't easily further diagnosed. Hence, we instead load/save the raw Geometry Rect object.
+        self.q_settings.setValue("WindowGeometry", self.widget_main_window.geometry())
+        self.q_settings.setValue("SplitterHorizontalGeometry", self.widget_splitter_horizontal.sizes())
+        self.q_settings.setValue("SplitterVerticalGeometry", self.widget_splitter_vertical.sizes())
+
+        self.q_settings.setValue("WorkingDirectory", "./WorkingDirectory")
+
+        # Save processing-related settings...
+        selected_fetcher_types = self._get_selected_lyric_fetcher_types()
+        selected_aligner_type = self._get_selected_lyric_aligner_type()
+        paths_to_process = self.widget_local_data_sources.get_paths()
+
+        self.q_settings.setValue("Processing/FetcherTypes", selected_fetcher_types)
+        self.q_settings.setValue("Processing/AlignerType", selected_aligner_type)
+
+        # Note, if paths_to_process is an empty list, Qt saves "@Invalid()" to disk
+        self.q_settings.setValue("Processing/FoldersToProcess", paths_to_process)
+
+        self._set_checkbox_settings_value("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
+        self._set_checkbox_settings_value("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
+
+
+    def start_processing(self):
 
         selected_fetcher_types = self._get_selected_lyric_fetcher_types()
         selected_aligner_type = self._get_selected_lyric_aligner_type()
         paths_to_process = self.widget_local_data_sources.get_checked_paths()
         
-        config = Settings()
+        settings = Settings()
+        settings.lyric_fetching.sources = selected_fetcher_types
+        settings.lyric_alignment.method = selected_aligner_type
+        settings.data.input.paths_to_process = paths_to_process
+        settings.data.input.recursively_process_paths = self.recursively_parse_folders_to_process
+        settings.data.input.folders_to_exclude = []
 
-        # xplain that we package gui things into the config file hea!
-        config.data.recursively_parse_audio_file_path = self.recursively_parse_folders_to_process
-        config.data.overwrite_existing_generated_files = self.overwrite_existing_generated_files
+        settings.data.output.overwrite_existing_generated_files = self.overwrite_existing_generated_files
+        settings.data.output.path_to_working_directory = self.path_to_working_directory
+        settings.data.output.path_to_reports = self.path_to_reports
 
-        self.fetch_and_align_lyrics(config)
+        # These still need to be set
+        # settings.data.output.aligned_lyrics_file_copy_mode = None
+        # settings.data.output.aligned_lyrics_output_mode = None
+        # settings.data.output.path_to_output_aligned_lyrics = None
+
+        # TODO: Re-visit if passing in this worker in the single-threaded context is the best single threaded approach.
+        worker = GuiWorker(None)
+        loop_wrapper = ProgressItemGeneratorGUI(worker.signals.progress, worker.signals.task_description)
+
+        if DeveloperOptions.is_multithreading_enabled():
+            # Multi-threaded
+            worker.set_fn(self.fetch_and_align_lyrics, settings, loop_wrapper)
+
+            # When execution finishes, have the worker pass on the results to this thread to update the process table
+            worker.signals.finished.connect(self._update_processed_table)
+            
+            self._connect_worker_to_gui_progress_bar_widget(worker)
+
+            # thread_pool.start() also accepts PyCallable, but this wouldn't provide built-in signals or added parameters
+            # leading to further hidden state.
+            self.thread_pool.start(worker)
+        else:
+            # Single-threaded
+            lyric_alignment_tasks = self.fetch_and_align_lyrics(settings, loop_wrapper)
+            self._update_processed_table(lyric_alignment_tasks)
+
+
+    def _connect_worker_to_gui_progress_bar_widget(self, worker: GuiWorker):
+        """ Connects the Worker class' signals to the Guis progress bar update function.
+
+        For reasons that are currently unclear, directly passing the Qt progress bar widgets functions into the the
+        Worker class' QtCore.Signal's connect() function leads to the progress bar never receiving any updates. However,
+        using an inbetween functor, such as a member function or lambda resolves this problem. No idea why...
+        """
+        func_update_progress_bar_value = lambda value : self.widget_progress_bar_overall.setValue(value)
+        func_update_progress_bar_text = lambda text : self.widget_progress_bar_overall.setFormat(f"{text}... %p%")
+
+        #worker.signals.progress.connect(self.widget_progress_bar.setValue) # Doesn't work for some reason...?
+        worker.signals.progress.connect(func_update_progress_bar_value)
+        worker.signals.task_description.connect(func_update_progress_bar_text)
+        
 
     def _add_fetcher(self, text: str):
         item = QListWidgetItem(text)
@@ -281,25 +354,39 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         radio_button.setChecked( True )
 
 
-    def _setup_widget_processed_table(self):
+    def _update_processed_table(self, audio_lyric_align_tasks: list[AudioLyricAlignTask]):
+        """ Updates """
 
-        # Sources:
-        # https://stackoverflow.com/questions/54285057/how-to-include-a-column-of-progress-bars-within-a-qtableview
-        # add / remove all rows:
-        # https://stackoverflow.com/questions/6957943/how-to-add-new-row-to-existing-qtablewidget
+        # Clear rows without clearing the column names
+        # Source: https://forum.qt.io/topic/85189/how-not-to-delete-column-names-in-qtablewidget
+        self.widget_songs_processed.model().removeRows(0, self.widget_songs_processed.rowCount())
 
-        self.widget_songs_processed: QTableWidget = self.widget_main_window.findChild(QTableWidget, "tableWidget_songs_processed")
+        self.widget_songs_processed.setRowCount(len(audio_lyric_align_tasks))
 
-        self.widget_songs_processed.insertRow( self.widget_songs_processed.rowCount() )
+        index_filename = 0
+        index_progress = 1
+        index_note = 2
 
-        progress_bar = QProgressBar()
-        progress_bar.setValue(26)
-        progress_bar.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
-        
+        for index, task in enumerate(audio_lyric_align_tasks):
+            item_filename = QTableWidgetItem(task.filename)
 
-        self.widget_songs_processed.setCellWidget(0,2, progress_bar)
+            # How to embed a progress bar
+            # https://stackoverflow.com/questions/54285057/how-to-include-a-column-of-progress-bars-within-a-qtableview
+            progress_bar = QProgressBar()
+            progress_bar.setValue(task.match_result.match_percentage)
+            progress_bar.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter) # Place progress bar text inside of itself.
 
+            progress_bar_animation_disabled = """
+                QProgressBar { border: 1px solid grey; border-radius: 0px; text-align: center; }
+                QProgressBar::chunk {background-color: #3add36; width: 1px;}
+            """
+            progress_bar.setStyleSheet(progress_bar_animation_disabled)
 
+            item_note = QTableWidgetItem("No notes")
+
+            self.widget_songs_processed.setItem(index, index_filename, item_filename)
+            self.widget_songs_processed.setCellWidget(index, index_progress, progress_bar)
+            self.widget_songs_processed.setItem(index, index_note, item_note)
 
 
 
@@ -354,29 +441,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
                 self.key_press_event(event)
             elif event.type() == QtCore.QEvent.Close:
                 
-                # Although .saveGeometry() and .restoreGeometry() appear to be the preferred approach to saving and
-                # restoring window position and size, it appears have issues working across multiple screens.
-                # Unfortunately the two functions automatically convert the QRect object to/from byte-code, so the
-                # problem isn't easily further diagnosed. Hence, we instead load/save the raw Geometry Rect object.
-                #flux = self.widget_main_window.saveGeometry()
-
-                window_geometry = self.widget_main_window.geometry()
-
-                self.q_settings.setValue("WindowGeometry", window_geometry)
-                self.q_settings.setValue("WorkingDirectory", "./WorkingDirectory")
-
-                # Save processing-related settings...
-                selected_fetcher_types = self._get_selected_lyric_fetcher_types()
-                selected_aligner_type = self._get_selected_lyric_aligner_type()
-                #paths_to_process = self.widget_local_data_sources.get_checked_paths()
-                paths_to_process = self.widget_local_data_sources.get_paths()
-
-                self.q_settings.setValue("Processing/FetcherTypes", selected_fetcher_types)
-                self.q_settings.setValue("Processing/AlignerType", selected_aligner_type)
-                self.q_settings.setValue("Processing/FoldersToProcess", paths_to_process)
-
-                self._set_checkbox_settings_value("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
-                self._set_checkbox_settings_value("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
+                self._save_ui_settings()
 
                 self.is_running = False
 

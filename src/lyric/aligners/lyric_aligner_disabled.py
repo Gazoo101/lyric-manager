@@ -1,4 +1,5 @@
 # Python
+import logging
 
 # 1st Party
 from .lyric_aligner_interface import LyricAlignerInterface
@@ -17,4 +18,5 @@ class LyricAlignerDisabled(LyricAlignerInterface):
         return []
 
     def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting) -> list[WordAndTiming]:
+        logging.info("Lyric alignment *disabled* - no lyrics aligned.")
         return []

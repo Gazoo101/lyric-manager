@@ -1,4 +1,5 @@
 # Python
+from typing import List
 
 # 3rd Party
 
@@ -19,6 +20,9 @@ class LyricFetcherDisabled(LyricFetcherInterface):
 
     def __init__(self):
         super()
+
+    def _sanitize_lyrics_raw(self, lyrics_raw: List[str]) -> List[str]:
+        return []
 
     def _fetch_lyrics_raw(self, audio_lyric_align_task):
         return ""

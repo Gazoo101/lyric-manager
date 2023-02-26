@@ -73,31 +73,14 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         if not path_to_aligner:
             raise Exception("No path to NUSAutoLyrixAlign provided. No alignment can take place.")
 
-        # Find one or two critical files
+        # Find critical files
         path_to_alignment_script = path_to_aligner / "RunAlignment.sh"
         path_to_singularity_image = path_to_aligner / "kaldi.simg"
 
+        self.aligner_functional = True
         if not path_to_alignment_script.exists() or not path_to_singularity_image.exists():
             logging.warning("NUSAutoLyrixAlign is missing vital files to execute properly, can only run on cached files.")
-
-        # Test these things:
-        # song = "/home/lasse/Workspace/audio_to_align/50 Cent - In da Club.mp3"
-        # lyrics = "/home/lasse/Workspace/lyric-manager/working_directory/50 Cent - In da Club.alignment_ready"
-        # self._align_lyrics_internal(song, lyrics)
-
-        # Works...
-        # song = "/home/lasse/Workspace/audio_to_align/Street Hoop OST/612 - Street Hoop - BODY’S POWER.mp3"
-        # lyrics = "/home/lasse/Workspace/lyric-manager/working_directory/612 - Street Hoop - BODY’S POWER.alignment_ready"
-        # self._align_lyrics_internal(song, lyrics)
-
-        # song = "/home/lasse/Workspace/audio_to_align/Street Hoop OST/212 - Street Hoop - FUNKY HEAT.mp3"
-        # lyrics = "/home/lasse/Workspace/lyric-manager/working_directory/212 - Street Hoop - FUNKY HEAT.alignment_ready"
-        # self._align_lyrics_internal(song, lyrics)
-
-        #song = "/home/lasse/Workspace/audio_to_align_failure_cases/The Young Punx - All These Things Are Gone.mp3"
-
-        #"The Young Punx - All These Things Are Gone.mp3"
-
+            self.aligner_functional = False
 
 
     def _convert_to_wordandtiming(self, path_to_aligned_lyrics):
@@ -145,20 +128,26 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         """
         # Check if the saved raw version exists
         if use_preexisting:
-            preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
-            if preexisting_aligned_lyric_file.exists():
+            preexisting_aligned_lyric_file = self._get_cached_aligned_output_file(path_to_audio_file)
+
+            #preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
+            if preexisting_aligned_lyric_file:
                 logging.info(f'Found pre-existing NUSAutoLyrixAlign file: {preexisting_aligned_lyric_file}')
                 word_timings = self._convert_to_wordandtiming(preexisting_aligned_lyric_file)
                 return word_timings
-
-        if not self.path_aligner:
-            logging.info('No path provided to NUSAutoLyrixAlign, skipping alignment.')
-
-            if not use_preexisting:
-                logging.warning("Without an aligner or access to a pre-existing alignment file, there's little reason to continue")
-                raise RuntimeError("No song aligner provided and pre-existing alignment files disallowed.")
-
+            
+        if not self.aligner_functional:
+            logging.info("Missing vital components to execute aligner - skipping alignment.")
             return []
+
+        # if not self.path_aligner:
+        #     logging.info('No path provided to NUSAutoLyrixAlign, skipping alignment.')
+
+        #     if not use_preexisting:
+        #         logging.warning("Without an aligner or access to a pre-existing alignment file, there's little reason to continue")
+        #         raise RuntimeError("No song aligner provided and pre-existing alignment files disallowed.")
+
+        #     return []
 
 
         datetime_before_alignment = datetime.now()

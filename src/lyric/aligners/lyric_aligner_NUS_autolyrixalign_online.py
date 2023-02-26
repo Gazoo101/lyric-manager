@@ -1,4 +1,5 @@
 # Python
+from pathlib import Path
 
 # 1st Party
 from .lyric_aligner_interface import LyricAlignerInterface
@@ -21,5 +22,5 @@ class LyricAlignerNUSAutoLyrixAlignOnline(LyricAlignerInterface):
     def _convert_to_wordandtiming(self, input):
         return []
 
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input) -> list[WordAndTiming]:
+    def align_lyrics(self, path_to_audio_file: Path, path_to_lyric_input: Path, use_preexisting: bool) -> list[WordAndTiming]:
         return ""
