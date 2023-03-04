@@ -18,3 +18,4 @@ class LyricValidity(Enum):
     Invalid_TooManyChars = auto()
     Invalid_TooFewChars = auto()
     WrongSong = auto()    # Returned lyrics, but not the ones matching the song
+    Skipped_Due_To_Fetch_Errors = auto()

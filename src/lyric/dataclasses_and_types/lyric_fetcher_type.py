@@ -10,6 +10,6 @@ class LyricFetcherType(Enum):
     LocalFile = auto()
     Pypi_LyricsGenius = auto()
     Pypi_LyricsExtractor = auto()
-    Website_LyricsDotOvh = auto()
+    #Website_LyricsDotOvh = auto()
 
 # Potential future source: https://www.musixmatch.com/

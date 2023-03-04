@@ -27,10 +27,10 @@ class AlignedLyricsOutputMode(Enum):
 class SettingsLyricFetching():
     sources: List[LyricFetcherType] = MISSING
 
-    genius_token: Optional[str] = ""
+    genius_token: Optional[str] = None
 
-    google_custom_search_api_key: Optional[str] = ""
-    google_custom_search_engine_id: Optional[str] = ""
+    google_custom_search_api_key: Optional[str] = None
+    google_custom_search_engine_id: Optional[str] = None
 
 @dataclass
 class SettingsLyricAlignment():

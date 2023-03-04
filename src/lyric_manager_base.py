@@ -15,22 +15,24 @@ from typing import TYPE_CHECKING, Union
 
 # 1st Party
 from .developer_options import DeveloperOptions
-from  src.components import ObjectFactory
+from .components import ObjectFactory
 
-from src.components import get_percentage_and_amount_string
+from .components import get_percentage_and_amount_string
+from .components import FileOperations
 
-from .lyric.dataclasses_and_types import LyricFetcherType
+from .lyric.dataclasses_and_types import LyricAlignTask
 from .lyric.dataclasses_and_types import LyricAlignerType
+from .lyric.dataclasses_and_types import LyricFetcherType
+from .lyric.dataclasses_and_types import LyricPayload
 from .lyric.dataclasses_and_types import LyricValidity
-from .lyric.dataclasses_and_types import AudioLyricAlignTask
+
 
 from .lyric.fetchers import LyricFetcherDisabled
 from .lyric.fetchers import LyricFetcherPyPiLyricsGenius
 from .lyric.fetchers import LyricFetcherPyPiLyricsExtractor
 from .lyric.fetchers import LyricFetcherLocalFile
 from .lyric.fetchers import LyricFetcherWebsiteLyricsDotOvh
-from .lyric.fetchers import LyricFetcherInterface
-from .lyric.fetchers import Lyrics
+from .lyric.fetchers import LyricFetcherBase
 
 from .lyric.aligners import LyricAlignerInterface
 from .lyric.aligners import LyricAlignerDisabled
@@ -103,7 +105,7 @@ class LyricManagerBase:
         factory.register_builder(LyricFetcherType.Pypi_LyricsGenius, LyricFetcherPyPiLyricsGenius)
         factory.register_builder(LyricFetcherType.Pypi_LyricsExtractor, LyricFetcherPyPiLyricsExtractor)
         factory.register_builder(LyricFetcherType.LocalFile, LyricFetcherLocalFile)
-        factory.register_builder(LyricFetcherType.Website_LyricsDotOvh, LyricFetcherWebsiteLyricsDotOvh)
+        #factory.register_builder(LyricFetcherType.Website_LyricsDotOvh, LyricFetcherWebsiteLyricsDotOvh)
         return factory
 
 
@@ -126,15 +128,19 @@ class LyricManagerBase:
         }
 
         if type == LyricFetcherType.Pypi_LyricsGenius:
-            if settings.lyric_fetching.genius_token is None:
+            # Although it's best practice to check 'is None' (rather than an implicit test) for properties that could be
+            # None, we also must cater for empty strings, hence why we prefer the implict test
+            if not settings.lyric_fetching.genius_token:
                 logging.warning("Pypi_LyricsGenius source requires genius token to be defined.")
                 logging.warning("LyricFetcher Pypi_LyricsGenius could not be instanitated.")
                 return None
 
             lyric_fetcher_parameters["token"] = settings.lyric_fetching.genius_token
         elif type == LyricFetcherType.Pypi_LyricsExtractor:
-            if settings.lyric_fetching.google_custom_search_api_key is None or \
-               settings.lyric_fetching.google_custom_search_engine_id is None:
+            # Although it's best practice to check 'is None' (rather than an implicit test) for properties that could be
+            # None, we also must cater for empty strings, hence why we prefer the implict test
+            if not settings.lyric_fetching.google_custom_search_api_key or \
+               not settings.lyric_fetching.google_custom_search_engine_id:
                 logging.warning("PyPi_LyricsExtractor source requires api key and engine id to be defined.")
                 logging.warning("LyricFetcher Pypi_LyricsExtractor could not be instanitated.")
                 return None
@@ -172,8 +178,7 @@ class LyricManagerBase:
         self.logging_format_time = "%Y-%m-%d %H:%M" # Also used in Gui lyric manager
 
         logging.basicConfig(
-            level=logging.INFO,
-            #level=logging.DEBUG,
+            level=DeveloperOptions.get_logging_level(),
             format=self.logging_format,
             datefmt=self.logging_format_time,
             handlers=[
@@ -197,7 +202,7 @@ class LyricManagerBase:
     
     def fetch_and_align_lyrics(self,
         settings: Settings,
-        loop_wrapper: Union[ProgressItemGeneratorCLI, ProgressItemGeneratorGUI]) -> list[AudioLyricAlignTask]:
+        loop_wrapper: Union[ProgressItemGeneratorCLI, ProgressItemGeneratorGUI]) -> list[LyricAlignTask]:
         """ Fetches and aligns lyrics using selected fetchers and aligner as defined by the settings parameter.
 
         Args:
@@ -213,12 +218,18 @@ class LyricManagerBase:
         for lyric_fetcher_type in settings.lyric_fetching.sources:
 
             # Instantiation of lyric fetchers may fail if various API tokens are missing.
-            lyric_fetcher = self._create_lyric_fetcher(lyric_fetcher_type, settings)
-            if lyric_fetcher:
-                lyric_fetchers.append(lyric_fetcher)
+            a_lyric_fetcher = self._create_lyric_fetcher(lyric_fetcher_type, settings)
+            if a_lyric_fetcher:
+                lyric_fetchers.append(a_lyric_fetcher)
+
+        # The remaining code is simpler if we eliminate the possibility of proceeding without a single valid lyric
+        # fetcher at this point.
+        if not lyric_fetchers:
+            # If we can't obtain any lyric sources locally or remotely, we may as well cut to the chase
+            return []
+
 
         lyric_aligner = self._create_lyric_aligner(settings.lyric_alignment.method, settings)
-
 
         paths_to_process_valid = []
         for path in settings.data.input.paths_to_process:
@@ -232,7 +243,7 @@ class LyricManagerBase:
 
         logging.info(f"Found {len(all_audio_files)} audio files to process.")
 
-        tasks = self._create_audio_lyric_align_tasks_from_paths(all_audio_files)
+        tasks = self._create_lyric_align_tasks_from_paths(all_audio_files)
 
         # Design commentary:
         # Tasks are deliberately encapsulated into multiple functionally independent loops, as opposed to undertaking
@@ -241,8 +252,8 @@ class LyricManagerBase:
         #   - Debugging can be more easily focused on one single failing functionality
         #   - Further encapsulation is simpler.
 
-        tasks_with_lyrics: list[AudioLyricAlignTask] = []
-        tasks_with_lyrics_valid: list[AudioLyricAlignTask] = []
+        tasks_with_lyrics: list[LyricAlignTask] = []
+        tasks_with_lyrics_valid: list[LyricAlignTask] = []
 
         for task in loop_wrapper(tasks, desc="Fetching, validating, and sanitizing lyrics"):
             task_with_lyrics = self._fetch_and_sanitize_lyrics(lyric_fetchers, task)
@@ -250,7 +261,7 @@ class LyricManagerBase:
 
 
         # For now we only keep (probably) valid lyrics
-        tasks_with_lyrics_valid = [task for task in tasks_with_lyrics if task.lyric_validity == LyricValidity.Valid]
+        tasks_with_lyrics_valid = [task for task in tasks_with_lyrics if task.lyric_payload.validity == LyricValidity.Valid]
 
 
         # Because lyric alignment is fairly time-consuming (~0.5 minute processing per 1 minute audio), we write the
@@ -289,14 +300,14 @@ class LyricManagerBase:
         return all_audio_files
     
 
-    def _create_audio_lyric_align_tasks_from_paths(self, paths_to_audio_files: list) -> list[AudioLyricAlignTask]:
+    def _create_lyric_align_tasks_from_paths(self, paths_to_audio_files: list) -> list[LyricAlignTask]:
         """ Turns a list of paths to audio files into AudioLyricAlignTask objects """
         lyric_align_tasks = []
 
         for path_to_audio_file in paths_to_audio_files:
             try:
                 # If the audio filename cannot be properly decomposed into Artist - Song, the constructor will throw
-                task = AudioLyricAlignTask(path_to_audio_file)
+                task = LyricAlignTask(path_to_audio_file)
                 lyric_align_tasks.append(task)
             except IndexError:
                 logging.warning(f"The audio filename: '{path_to_audio_file}' was malformed.")
@@ -306,42 +317,41 @@ class LyricManagerBase:
         return lyric_align_tasks
     
 
-    def _fetch_and_sanitize_lyrics(self, lyric_fetchers, lyric_align_task: AudioLyricAlignTask):
+    def _fetch_and_sanitize_lyrics(self, lyric_fetchers, lyric_align_task: LyricAlignTask):
         """ For a given AudioLyricAlignTask, fetches lyrics using available sources in self.all_lyric_fetchers.
         
         The order of the lyric fetches matters as function will accept the first valid source available.
         """
-        lyric_fetcher: LyricFetcherInterface
-        lyric_source = None
+        lyric_fetcher: LyricFetcherBase
+        lyric_fetcher_type = None
+        lyrics_payload: LyricPayload = None
         for lyric_fetcher in lyric_fetchers:
 
             # Fetcher currently writes previously fetched copies to disk. This should perhaps
             # be elevated/exposed to this level.
-            lyrics: Lyrics = lyric_fetcher.fetch_lyrics(lyric_align_task)
-            lyric_source = lyric_fetcher.type
+            lyrics_payload = lyric_fetcher.fetch_lyrics(lyric_align_task)
+            lyric_fetcher_type = lyric_fetcher.type
 
             # Source of lyrics found
-            if lyrics.validity is LyricValidity.Valid:
+            if lyrics_payload.validity is LyricValidity.Valid:
                 break
 
-        if lyrics.validity is not LyricValidity.Valid:
+        if lyrics_payload.validity is not LyricValidity.Valid:
             logging.warning(f"No valid lyric source found for: {lyric_align_task.path_to_audio_file}")
             # Add additional info here for what *was* found...
             return lyric_align_task
         
-        lyric_align_task.lyric_text_raw = lyrics.raw
-        lyric_align_task.lyric_text_sanitized = lyrics.sanitized
-        lyric_align_task.lyric_validity = lyrics.validity
-        lyric_align_task.lyric_source = lyric_source
+        lyric_align_task.lyric_payload = lyrics_payload
+        lyric_align_task.lyric_fetcher_type_source = lyric_fetcher_type
 
         # if lyric_validity is not LyricValidity.Valid:
         #     logging.warning(f"Non-valid lyrics found for: {lyric_align_task.path_to_audio_file}. Will not sanitize.")
         #     return lyric_align_task
 
         # We must detect multipliers before sanitizing the lyrics...
-        lyric_align_task.detected_multiplier = self.lyric_sanitizer.contains_multipliers(lyric_align_task.lyric_text_raw)
+        lyric_align_task.detected_multiplier = self.lyric_sanitizer.contains_multipliers(lyric_align_task.lyric_payload.contains_multipliers)
 
-        lyric_align_task.lyric_text_expanded = self.lyric_expander.expand_lyrics(lyric_align_task.path_to_audio_file.stem, lyric_align_task.lyric_text_sanitized)
+        lyric_align_task.lyric_text_expanded = self.lyric_expander.expand_lyrics(lyric_align_task.path_to_audio_file.stem, lyric_align_task.lyric_payload.text_sanitized)
 
         # Separate full lyric string into a list of strings
         lyric_text_expanded_split = lyric_align_task.lyric_text_expanded.splitlines()
@@ -353,7 +363,7 @@ class LyricManagerBase:
         return lyric_align_task
     
 
-    def _align_lyrics(self, lyric_align_task: AudioLyricAlignTask, lyric_aligner: LyricAlignerInterface, file_output_path: Path):
+    def _align_lyrics(self, lyric_align_task: LyricAlignTask, lyric_aligner: LyricAlignerInterface, file_output_path: Path):
         """ A class for a user
 
         Args:
@@ -380,8 +390,10 @@ class LyricManagerBase:
         if file_output_path:
             path_to_alignment_ready_file = file_output_path / path_to_alignment_ready_file.name
 
-        with open(path_to_alignment_ready_file, 'wt') as file:
-            file.write(complete_lyric_string)
+        # TODO: We should eventually check if the lyric aligner can manage utf-8 files or needs strictly ASCII
+        FileOperations.write_utf8_string(path_to_alignment_ready_file, complete_lyric_string)
+        # with open(path_to_alignment_ready_file, 'wt') as file:
+        #     file.write(complete_lyric_string)
 
         # TODO: Write intermediate lyric file on-disk for aligner tool to use
         #intermediate_lyric_file = "path"
@@ -404,7 +416,7 @@ class LyricManagerBase:
     
 
     def _write_aligned_lyrics_to_disk(self,
-        lyric_align_task: AudioLyricAlignTask,
+        lyric_align_task: LyricAlignTask,
         file_output_path: Path,
         export_readable_json: bool):
         """ TODO """
@@ -433,7 +445,7 @@ class LyricManagerBase:
         return ' '.join(string.split())
     
 
-    def _create_aligned_lyrics_report(self, all_tasks: list[AudioLyricAlignTask], tasks_valid: list[AudioLyricAlignTask]):
+    def _create_aligned_lyrics_report(self, all_tasks: list[LyricAlignTask], tasks_valid: list[LyricAlignTask]):
         """ Creates a text with a lyric alignment report into the /reports folder. """
 
         # Three-Step aligned lyrics report creation:
@@ -483,7 +495,7 @@ class LyricManagerBase:
         lines_to_write.append(f"============------------ All songs ( {amount_tasks_total} ) ------------============")
 
         for task in all_tasks:
-            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.lyric_validity} | Mult: {task.detected_multiplier}")
+            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.lyric_payload.validity} | Mult: {task.detected_multiplier}")
 
         text_to_write = "\n".join(lines_to_write)
 

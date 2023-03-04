@@ -54,7 +54,7 @@ class LyricSanitizer():
         return sanitized
 
 
-    def remove_non_lyrics_v2(self, all_lyric_lines: List[str]):
+    def remove_non_lyrics(self, all_lyric_lines: List[str]) -> List[str]:
         """ Returns a list of sanitized lyric strings.
 
         Each string in the list represents a single coheasive sung sentence. This is used during
@@ -89,49 +89,9 @@ class LyricSanitizer():
 
         return non_empty_lyric_lines
 
-
-    #
-    # TO BE DEPRECATED!
-    def remove_non_lyrics(self, lyrics:str):
-        """ Returns a list of sanitized lyric strings.
-
-        Each string in the list represents a single coheasive sung sentence. This is used during
-        visualization to cohesively visualize sentances.
-        """
-        # Lyrics are provided in a single large string
-
-        # 1. Reformat string into per-line for easier human manipulation
-        all_lyric_lines = lyrics.splitlines()
-
-        sanitized_lyric_lines = []
-
-        for lyric_line in all_lyric_lines:
-            # Removes [<any content, except newlines>]
-            #complete_lyric_string = re.sub(r"\[.*\]", '', complete_lyric_string)
-            #lyric_line = re.sub(r"\[[a-zA-Z0-9 -]*\]", '', lyric_line) # Didn't catch &, or . and the like
-            lyric_line = re.sub(r"\[(.*?)\]", '', lyric_line)
-
-            lyric_line = lyric_line.strip()
-
-            sanitized_lyric_lines.append(lyric_line)
-
-        # Remove empty lines
-        non_empty_lyric_lines = [lyric_line for lyric_line in sanitized_lyric_lines if lyric_line]
-
-
-        # complete_lyric_string = ' '.join(non_empty_lyric_lines)
-
-        # # Removes [<any content, except newlines>]
-        # #complete_lyric_string = re.sub(r"\[.*\]", '', complete_lyric_string)
-        # complete_lyric_string = re.sub(r"\[[a-zA-Z0-9 -]*\]", '', complete_lyric_string)
-
-        # # Remove double-spaces
-        # complete_lyric_string = ' '.join(complete_lyric_string.split())
-
-        return non_empty_lyric_lines
 
     
-    def replace_difficult_characters(self, lyrics):
+    def replace_difficult_characters(self, lyrics: List[str]) -> List[str]:
         """ Replaces characters that cause issues in the lyric rendering pipeline.
 
         Rather than supporting every possible character, it's initially far simpler, to replace

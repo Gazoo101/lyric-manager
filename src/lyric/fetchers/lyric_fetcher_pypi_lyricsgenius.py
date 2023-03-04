@@ -6,39 +6,29 @@ import contextlib
 import time
 import random
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime
-from typing import DefaultDict, Tuple, TYPE_CHECKING
-from collections import defaultdict
+from typing import TYPE_CHECKING
+from difflib import SequenceMatcher
 
 # 3rd Party
-import jsons
 import lyricsgenius
+from lyricsgenius.song import Song
 from requests.exceptions import Timeout
 
 
 # 1st Party
-from .lyric_fetcher_interface import LyricFetcherInterface
+from .lyric_fetcher_base import LyricFetcherBase
+from ..dataclasses_and_types import LyricPayload
 from ..dataclasses_and_types import LyricFetcherType
 from ..dataclasses_and_types import LyricValidity
 from ...components import text_simplifier
 
 if TYPE_CHECKING:
-    from ..dataclasses_and_types import AudioLyricAlignTask
-
-# FetchErrors is a @dataclass so we can construct defaultdict(FetchErrors) which can be serialized using jsons.
-# defaultdict(defaultdict(Enum)) cannot be serialized in using jsons.
-@dataclass
-class FetchErrors():
-    time_out : int = 0
-    not_found : int = 0
-
-    def get_total_error_amount(self):
-        return self.time_out + self.not_found
+    from ..dataclasses_and_types import LyricAlignTask
 
 
-class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
+class LyricFetcherPyPiLyricsGenius(LyricFetcherBase):
     """ Retrieves Lyrics from genius.com via lyricgenius.
     
     Uses https://pypi.org/project/lyricsgenius/
@@ -48,7 +38,12 @@ class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
     def __init__(self, token, path_to_working_dir:Path = None):
         super().__init__(LyricFetcherType.Pypi_LyricsGenius, ".genius", path_to_working_dir)
         self.token = token
+
+        # lyricgenius throws a TypeError if the provided token is bad. This exception is expected to be caught
+        # externally.
         self.genius = lyricsgenius.Genius(self.token)
+
+        self.sequence_matcher = SequenceMatcher()
 
         # In an effort to not overload Genius' servers, we insert some self-rate limiting
         self.rate_limit = True
@@ -58,23 +53,10 @@ class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
         self.random_wait_lower = 3.0 # seconds
         self.random_wait_upper = 10.0 # seconds
 
-        self.path_to_fetch_history = path_to_working_dir / "genius_fetch_history.lm"
-        self.fetch_history = self._init_fetch_history()
 
-
-    def _init_fetch_history(self):
-        fetch_history = defaultdict(FetchErrors)
-
-        if self.path_to_fetch_history.exists():
-            file_content = self.path_to_fetch_history.read_text()
-            fetch_history = jsons.loads(file_content, DefaultDict[str, FetchErrors])
-
-        return fetch_history
-
-
-    def _save_fetch_history(self):
-        fetch_history_serialized = jsons.dumps(self.fetch_history)
-        self.path_to_fetch_history.write_text(fetch_history_serialized)
+    def _get_lyric_text_raw_from_source(self, source: Song) -> str:
+        """ Each fetcher will have a somewhat different source, so we must implement this - rewrite this code description. """
+        return source.lyrics
 
 
     def _text_simplify(self, text: str):
@@ -83,13 +65,49 @@ class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
         text = text.replace('(', '').replace(')', '')
         text = text.replace('+', '\+')
         return text
+    
+    def _is_artist_and_song_name_similar(self, lyric_align_task:LyricAlignTask, raw_source: Song) -> bool:
+        """ Determines whether the task artist and song name matches the sources artist and song name.
+
+        Pypi's lyricgenius will often return a completely unrelated lyric result related to the request. Checking the
+        similarity of the artist and song name is a good approach to filter out early inaccurate results.
+        """
+
+        # The comparison should be case-invariant
+        task_artist = lyric_align_task.artist.lower()
+        source_artist = raw_source.artist.lower()
+
+        task_song_name = lyric_align_task.song_name.lower()
+        source_song_name = raw_source.title.lower()
+
+        self.sequence_matcher.set_seqs(task_artist, source_artist)
+        ratio_artist = self.sequence_matcher.ratio()
+
+        self.sequence_matcher.set_seqs(task_song_name, source_song_name)
+        ratio_song_name = self.sequence_matcher.ratio()
+
+        # Debug output
+        logging.debug(f"Artist: Task '{task_artist}' vs. source '{source_artist}' - Ratio {ratio_artist}")
+        logging.debug(f"Song name: Task '{task_song_name}' vs. source '{source_song_name}' - Ratio {ratio_song_name}")
+
+        similarity_threshold = 0.5
+
+        if ratio_artist > similarity_threshold and ratio_song_name > similarity_threshold:
+            logging.debug("Similarity: Accepted!")
+            return True
+        
+        logging.debug("Similarity: Failed!")
+        return False
 
 
-    def _validate_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask, lyrics: str):
+
+    def _validate_lyrics(self, lyric_align_task:LyricAlignTask, raw_source: Song) -> LyricValidity:
         """ Attempts to determine whether the lyrics found are legit or not. """
+        lyrics = raw_source.lyrics
 
-        # _____________________________________
-        # _______ Step 1: Early Return
+        if not self._is_artist_and_song_name_similar(lyric_align_task, raw_source):
+            # Most likely incorrect lyrics
+            return LyricValidity.WrongSong
 
         # Valid lyrics tend to always start with some combination of "<Song Title> Lyrics", so our validation will
         # be guided by this fact.
@@ -98,7 +116,7 @@ class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
         # Error cases, which - until now, appear to never trigger.
         if index_of_first_instance_of_lyric == -1:
             return LyricValidity.Invalid_NoLyricStringFound
-        elif index_of_first_instance_of_lyric > len(audio_lyric_align_task.song_name) + 100:
+        elif index_of_first_instance_of_lyric > len(lyric_align_task.song_name) + 100:
             return LyricValidity.Invalid_LyricStringFoundTooFarIntoString
 
         # Heuristically determined invalid lengths
@@ -120,7 +138,7 @@ class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
 
         # Hard-coded simplifications to make life easier
         lyrics_beginning = self._text_simplify(lyrics_beginning)
-        song_name = self._text_simplify(audio_lyric_align_task.song_name)
+        song_name = self._text_simplify(lyric_align_task.song_name)
     
         # Match case-insensitive song-name with zero or multiple spaces
         reg_exp_start = f"(?i){song_name}\s*"
@@ -144,31 +162,15 @@ class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
         return LyricValidity.WrongSong
 
 
-    def _fetch_lyrics_raw(self, audio_lyric_align_task: AudioLyricAlignTask) -> Tuple[str, LyricValidity]:
+    def _fetch_lyrics_payload(self, lyric_align_task: LyricAlignTask) -> LyricPayload:
+        lyrics = LyricPayload()
 
-        ####
-        # Fetch pre-cached version
-        path_to_cached_lyrics = audio_lyric_align_task.path_to_audio_file
 
-        if self.path_to_working_dir:
-            path_to_cached_lyrics = self.path_to_working_dir / audio_lyric_align_task.path_to_audio_file.name
+        if self.fetch_history[lyric_align_task.filename].get_total_error_amount() >= 1:
+            lyrics.validity = LyricValidity.Skipped_Due_To_Fetch_Errors
+            logging.info(f"Skipping {lyric_align_task.filename} due to previous fetch errors.")
+            return lyrics
 
-        path_to_cached_lyrics = path_to_cached_lyrics.with_suffix(self.file_extension)
-
-        if path_to_cached_lyrics.exists():
-            logging.info(f"Using local copy: {path_to_cached_lyrics}")
-            
-            with open(path_to_cached_lyrics, 'r', encoding='utf-8') as file:
-                file_contents = file.read()
-
-            lyric_validity = self._validate_lyrics(audio_lyric_align_task, file_contents)
-            
-            return file_contents, lyric_validity
-
-        ####
-        # Fetch fresh version
-        if self.fetch_history[audio_lyric_align_task.filename].not_found >= 1:
-            return None, LyricValidity.NotSet
 
         if self.rate_limit:
             time_since_last_fetch = datetime.now() - self.timestamp_recent_fetch
@@ -182,46 +184,73 @@ class LyricFetcherPyPiLyricsGenius(LyricFetcherInterface):
         try:
             # Silence geniuslibrary - breaks output.
             with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
-                genius_song = self.genius.search_song(audio_lyric_align_task.song_name, audio_lyric_align_task.artist)
+                genius_song = self.genius.search_song(lyric_align_task.song_name, lyric_align_task.artist)
 
-            # genius_artist = self.genius.search_artist(audio_lyric_align_task.artist, max_songs=1)
-            # genius_song = genius_artist.song(audio_lyric_align_task.song_name)
+            # genius_artist = self.genius.search_artist(lyric_align_task.artist, max_songs=1)
+            # genius_song = genius_artist.song(lyric_align_task.song_name)
         except Timeout:
             logging.warning("Timeout error.")
-            self.fetch_history[audio_lyric_align_task.filename].time_out += 1
+            self.fetch_history[lyric_align_task.filename].time_out += 1
             self._save_fetch_history()
-            return None, LyricValidity.NotSet
+            return lyrics
 
         if not genius_song:
-            logging.warning(f"Song '{audio_lyric_align_task.song_name}' was not found.")
-            self.fetch_history[audio_lyric_align_task.filename].not_found += 1
+            logging.warning(f"Song '{lyric_align_task.song_name}' was not found.")
+            self.fetch_history[lyric_align_task.filename].not_found += 1
             self._save_fetch_history()
-            return None, LyricValidity.NotSet
-
-        # Utf-8 required, as some lyrics sneak in awful non-ascii chars which break file-writing.
-        with open(path_to_cached_lyrics, 'w', encoding="utf-8") as file:
-            file.write(genius_song.lyrics)      # If there are UTF-8 chars - non unicode, we're effed'
-
-        lyric_validity = self._validate_lyrics(audio_lyric_align_task, genius_song.lyrics)
-
-        return genius_song.lyrics, lyric_validity
+            return lyrics
 
 
-    """ See LyricFetcherInterface.sanitize_raw_lyrics() for description. """
-    def sanitize_raw_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> str:
-        lyrics = audio_lyric_align_task.lyric_text_raw
+        lyrics.source = genius_song
+        lyrics.validity = self._validate_lyrics(lyric_align_task, genius_song)
 
-        # lyricgenius now returns some garbage-data in the lyrics we must clean up
-        # TODO: Delegate this clean up to the relevant fetcher, i.e. genius should clean genius garbage
-        # other db, should clean other db garbage
-        lyrics = self.lyric_sanitizer.remove_leading_title(audio_lyric_align_task.song_name, lyrics)
+        return lyrics
+
+
+    """ See LyricFetcherInterface._sanitize_lyrics_raw() for description. """
+    def _sanitize_lyrics_raw(self, lyric_align_task:LyricAlignTask, raw_source: Song) -> str:
+        """ Returns sanitized lyrics containing (ideally) no garbage text.
+        
+        Note, the Pypi package lyricsgenius likely does not exclusively access official Genius API end-points. Hence,
+        not only may the lyric data contain some garbage information that requires sanatizing, worse still, this
+        garbage data may change over time.
+
+        Time of confirmed proper sanitization: 04-03-2023
+        
+        """
+        lyrics = self._get_lyric_text_raw_from_source(raw_source)
+
+        # Remove lead-in garbage data
+        # It appears we can just use the genius-sourced title to remove the leading 'garbage data'
+        lead_in_garbage = f"{raw_source.title} Lyrics"
+        lyrics = lyrics[len(lead_in_garbage):]
+
+        #lyrics = self.lyric_sanitizer.remove_leading_title(lyric_align_task.song_name, lyrics)
+
+        # Remove lead-out garbage data
+        # Examples:
+        # <lyrics>2Embed
+        # <lyrics>40Embed
+        # <lyrics>19Embed
+        # <lyrics>5Embed
+        # <lyrics>You might also likeEmbed
+        # <lyrics>You might also like82Embed'
+
+        # First we remove the '<numeric value>Embed' portion
         lyrics = self.lyric_sanitizer.remove_embed_at_end(lyrics)
+
+        # Hard-code detect this new piece of garbage data. Hopefully, no lyrics will ever end with this line :/
+        occasional_garbage_ending = "You might also like"
+        if lyrics.endswith(occasional_garbage_ending):
+            lyrics = lyrics[:-len(occasional_garbage_ending)]
+
+        lyrics = lyrics.splitlines()
 
         # Clears non-lyric content like [verse 1] and empty lines
         lyrics = self.lyric_sanitizer.remove_non_lyrics(lyrics)
-        # TODO: ALSO SPLITS string, this isn't clear and should be 'separated out' or unified somehow with the
-        # local file handler/sanitizer.
 
         lyrics = self.lyric_sanitizer.replace_difficult_characters(lyrics)
+
+        lyrics = '/n'.join(lyrics)
 
         return lyrics

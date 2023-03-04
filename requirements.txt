@@ -1,5 +1,5 @@
 lyricsgenius==3.0.1  # Possibly to be phased out...
 lyrics_extractor
 omegaconf
-jsons
+jsonpickle
 tqdm

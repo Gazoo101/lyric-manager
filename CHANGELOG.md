@@ -11,6 +11,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+
+## [0.5]
+### Added
+- 2 GUI splitters added to allow user to determine how to distribute the GUI layout.
+- Added GUI settings entries for lyric fetchers that rely on external sources
+- About dialogue box
+
+### Changed
+- Updated freezing to lead to a significantly reduced distribution size, i.e from 450 mb down to 80 mb
+- Fixed PyPi_Genius fetcher being overly sensitive to tokens being empty strings
+- Re-factored most of the fetcher code to be more unified and simpler
+- Re-factored many internals for more consistent naming.
+- Genius fetching garbage removal to be simpler and up-to-date with the current garbage being left in lyric data.
+- Many other changes
+
+### Removed
+- Website_LyricsDotOvh from fetcher types as the source isn't working properly at all.
+
+## [0.4]
+- Pre-release version.
+
 ## [0.1] - 2023-02-15 - Version Reset
 - This version is broken, but the changes are so massive, that the commit was made so as to track progess a bit better.
 

@@ -6,7 +6,7 @@ import logging
 
 
 # 1st Party
-from .dataclasses_and_types import AudioLyricAlignTask
+from .dataclasses_and_types import LyricAlignTask
 
 class LyricExpander():
     """ When/If this class starts doing more than expansion (other logic), rename it to LyricLogic """

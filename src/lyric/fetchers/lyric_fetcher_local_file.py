@@ -8,8 +8,8 @@ from typing import Tuple, List, TYPE_CHECKING
 
 
 # 1st Party
-from .lyric_fetcher_interface import LyricFetcherInterface
-from .lyric_fetcher_interface import Lyrics
+from .lyric_fetcher_base import LyricFetcherBase
+from ..dataclasses_and_types import LyricPayload
 
 from ..dataclasses_and_types import LyricFetcherType
 from ..dataclasses_and_types import LyricValidity
@@ -17,16 +17,16 @@ from ..dataclasses_and_types import LyricValidity
 
 
 if TYPE_CHECKING:
-    from ..dataclasses_and_types import AudioLyricAlignTask
+    from ..dataclasses_and_types import LyricAlignTask
 
-class LyricFetcherLocalFile(LyricFetcherInterface):
+class LyricFetcherLocalFile(LyricFetcherBase):
     """ Fetches local .txt files containing lyrics for a given song. """
 
     def __init__(self, path_to_working_dir:Path = None):
         super().__init__(LyricFetcherType.LocalFile, ".txt", path_to_working_dir)
 
     
-    def _validate_lyrics(self, audio_lyric_align_task: AudioLyricAlignTask, lyrics: str):
+    def _validate_lyrics(self, lyric_align_task: LyricAlignTask, lyrics: str):
         """ Returns a LyricValidity Enum indicating whether the given lyric content is valid or not.
         
         Each LyricFetcher is responsible for validating its own sourced lyrics, as each source will have its own set of
@@ -36,18 +36,18 @@ class LyricFetcherLocalFile(LyricFetcherInterface):
         return LyricValidity.Valid
     
 
-    def fetch_lyrics(self, audio_lyric_align_task:AudioLyricAlignTask) -> Lyrics:
+    def fetch_lyrics(self, lyric_align_task:LyricAlignTask) -> LyricPayload:
         """ Returns the raw and sanitized lyrics, along with a guesstimation of the validity of the lyrics.
 
-        Local file lyrics are not subject to additional caching, so we override this function directly to disable the
-        caching behavior.        
+        Local file lyrics are not subject to additional caching, so we override the base classes version of this
+        function to disable the caching behavior.        
         """
-        lyrics = Lyrics()
+        lyrics = LyricPayload()
 
-        path_to_local_copy_in_working_dir = self.path_to_working_dir / audio_lyric_align_task.path_to_audio_file.name
+        path_to_local_copy_in_working_dir = self.path_to_working_dir / lyric_align_task.path_to_audio_file.name
         path_to_local_copy_in_working_dir = path_to_local_copy_in_working_dir.with_suffix(self.file_extension)
 
-        path_to_local_copy_next_to_audio = audio_lyric_align_task.path_to_audio_file.with_suffix(self.file_extension)
+        path_to_local_copy_next_to_audio = lyric_align_task.path_to_audio_file.with_suffix(self.file_extension)
 
         # Local files will either be next to the audio file, or in the working directory.
         path_to_lyric_txt_file = None
@@ -60,13 +60,21 @@ class LyricFetcherLocalFile(LyricFetcherInterface):
         if not path_to_lyric_txt_file:
             return lyrics
         
-        file_content = self._read_file_utf8(path_to_lyric_txt_file)
-        lyrics.raw = file_content
-        lyrics.sanitized = file_content
+        file_content, lyric_validity = self._fetch_lyrics_payload(path_to_lyric_txt_file)
+        lyrics.text_raw = file_content
+        lyrics.text_sanitized = file_content
         lyrics.contains_multipliers = False # To be fixed!
-        lyrics.validity = LyricValidity.Valid
+        lyrics.validity = lyric_validity
 
         return lyrics
+    
+
+    def _fetch_lyrics_payload(self, path_to_lyric_txt_file:Path) -> Tuple[str, LyricValidity]:
+        return self._read_file_utf8(path_to_lyric_txt_file, LyricValidity.Valid)
+
+    def _get_lyric_text_raw_from_source(self, source) -> str:
+        """ Each fetcher will have a somewhat different source, so we must implement this - rewrite this code description. """
+        horse =2
 
 
     # def _fetch_lyrics_raw(self, audio_lyric_align_task:AudioLyricAlignTask) -> Tuple[str, LyricValidity]:

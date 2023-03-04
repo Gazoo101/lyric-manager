@@ -8,9 +8,11 @@ from typing import Optional, List
 # 3rd Party
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QMainWindow, QListWidget, QPlainTextEdit, QListWidgetItem, QAbstractItemView, QSplitter
-from PySide6.QtWidgets import QRadioButton, QTableWidget, QTableWidgetItem, QProgressBar, QPushButton, QCheckBox
+from PySide6.QtWidgets import QRadioButton, QTableWidget, QTableWidgetItem, QProgressBar, QPushButton, QCheckBox 
+from PySide6.QtWidgets import QMessageBox, QMenuBar
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QDir, qDebug, QSettings
+from PySide6.QtGui import QAction
 
 # 1st Party
 from src.developer_options import DeveloperOptions
@@ -25,7 +27,7 @@ from src.lyric_manager_base import LyricManagerBase
 from src.lyric_processing_config import Settings
 from src.lyric.dataclasses_and_types import LyricFetcherType
 from src.lyric.dataclasses_and_types import LyricAlignerType
-from src.lyric.dataclasses_and_types import AudioLyricAlignTask
+from src.lyric.dataclasses_and_types import LyricAlignTask
 
 def bind_class_property_to_qt_widget_property(objectName, propertyName):
     """ Binds a Python class property to a given Qt widget property.
@@ -80,6 +82,10 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
     
     overwrite_existing_generated_files = \
         bind_class_property_to_qt_widget_property("checkBox_overwrite_existing_generated_files", "checked")
+    
+    gui_genius_token = bind_class_property_to_qt_widget_property("lineEdit_genius_token", "text")
+    gui_google_custom_search_api_key = bind_class_property_to_qt_widget_property("lineEdit_google_custom_search_api_key", "text")
+    gui_google_custom_search_engine_id = bind_class_property_to_qt_widget_property("lineEdit_google_custom_search_engine_id", "text")
 
     
     def _get_checkbox_settings_value_or_default(self, q_settings_name: str, widget_q_checkbox_name):
@@ -107,7 +113,6 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         LyricManagerBase.__init__(self, work_directory, reports_directory)
         QtCore.QObject.__init__(self)
-
 
 
         # A bool primarily used to avoid accessing deleted objects during shut-down in self.eventFilter()
@@ -145,7 +150,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         logging.info("LyricManager Gui loaded.")
 
-        #self.start_processing()
+        if DeveloperOptions.automatically_start_processing():
+            self.start_processing()
 
 
     def _setup_ui(self, path_to_ui_file : str):
@@ -204,6 +210,13 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         ### Slots and signals
         widget_start_processing.clicked.connect(self.start_processing)
 
+        menu_bar: QMenuBar = self.widget_main_window.menuBar()
+        menu_bar.triggered.connect(self.sl_menu_bar_trigger)
+
+        # Iterate through all a menu's actions
+        # for action in menu_bar.actions():
+        #     do_something = 0
+
 
     def _load_ui_settings(self):
         """ Restores all GUI related settings, e.g. window position, checked settings, selected elements, etc. """
@@ -224,6 +237,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         if splitter_vertical_geometry is not None:
             splitter_vertical_geometry = [int(i) for i in splitter_vertical_geometry]
             self.widget_splitter_vertical.setSizes(splitter_vertical_geometry)
+
+        # Tokens / Api Keys
+        self.gui_genius_token = self.q_settings.value("TokensApiKeys/GeniusToken", None)
+        self.gui_google_custom_search_api_key = self.q_settings.value("TokensApiKeys/GoogleCustomSearchApiKey", None)
+        self.gui_google_custom_search_engine_id = self.q_settings.value("TokensApiKeys/GoogleCustomSearchEngineId", None)
 
         fetcher_types = self.q_settings.value("Processing/FetcherTypes", [LyricFetcherType.LocalFile])
         aligner_type = self.q_settings.value("Processing/AlignerType", LyricAlignerType.Disabled)
@@ -255,6 +273,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         self.q_settings.setValue("WorkingDirectory", "./WorkingDirectory")
 
+        # Tokens / Api Keys
+        self.q_settings.setValue("TokensApiKeys/GeniusToken", self.gui_genius_token)
+        self.q_settings.setValue("TokensApiKeys/GoogleCustomSearchApiKey", self.gui_google_custom_search_api_key)
+        self.q_settings.setValue("TokensApiKeys/GoogleCustomSearchEngineId", self.gui_google_custom_search_engine_id)
+
         # Save processing-related settings...
         selected_fetcher_types = self._get_selected_lyric_fetcher_types()
         selected_aligner_type = self._get_selected_lyric_aligner_type()
@@ -271,6 +294,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
 
     def start_processing(self):
+        """ Starts LyricManager's lyric fetching and alignment.
+        
+        To maintain similar behaviour between the Command-Line- and Graphical-User-Interface versions, we transfer
+        relevant settings to a Settings-object and pass it to the underlying pipeline code in LyricManagerBase.
+        """
 
         selected_fetcher_types = self._get_selected_lyric_fetcher_types()
         selected_aligner_type = self._get_selected_lyric_aligner_type()
@@ -278,6 +306,10 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         
         settings = Settings()
         settings.lyric_fetching.sources = selected_fetcher_types
+        settings.lyric_fetching.genius_token = self.gui_genius_token
+        settings.lyric_fetching.google_custom_search_api_key = self.gui_google_custom_search_api_key
+        settings.lyric_fetching.google_custom_search_engine_id = self.gui_google_custom_search_engine_id
+
         settings.lyric_alignment.method = selected_aligner_type
         settings.data.input.paths_to_process = paths_to_process
         settings.data.input.recursively_process_paths = self.recursively_parse_folders_to_process
@@ -330,6 +362,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         
 
     def _add_fetcher(self, text: str):
+        """ Adds a check-box enabled lyric fetcher to the QListWidget containing lyric fetchers. """
         item = QListWidgetItem(text)
     
         item.setFlags(QtCore.Qt.ItemIsUserCheckable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable )
@@ -339,35 +372,32 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
 
     def _add_aligner(self, text: str):
-        #item = QListWidgetItem(text)
+        """ Adds a radio-button enabled lyric aligner to the QListWidget containing lyric aligners. """
 
         item = QListWidgetItem(self.widget_lyric_aligners)  # Without this 'parent instantiation' we get nothing in Qt O_o
 
         radio_button = QRadioButton(text)
     
-        #item.setFlags(QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsSelectable )
-
-        #self.widget_lyric_aligners.addItem(item)
         self.widget_lyric_aligners.setItemWidget(item, radio_button)
 
         # TODO: Figure out how to actually get the pointer to this radio button once the list construction is complete
         radio_button.setChecked( True )
 
 
-    def _update_processed_table(self, audio_lyric_align_tasks: list[AudioLyricAlignTask]):
+    def _update_processed_table(self, lyric_align_tasks: list[LyricAlignTask]):
         """ Updates """
 
         # Clear rows without clearing the column names
         # Source: https://forum.qt.io/topic/85189/how-not-to-delete-column-names-in-qtablewidget
         self.widget_songs_processed.model().removeRows(0, self.widget_songs_processed.rowCount())
 
-        self.widget_songs_processed.setRowCount(len(audio_lyric_align_tasks))
+        self.widget_songs_processed.setRowCount(len(lyric_align_tasks))
 
         index_filename = 0
         index_progress = 1
         index_note = 2
 
-        for index, task in enumerate(audio_lyric_align_tasks):
+        for index, task in enumerate(lyric_align_tasks):
             item_filename = QTableWidgetItem(task.filename)
 
             # How to embed a progress bar
@@ -533,6 +563,35 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
                 state_to_set = QtCore.Qt.Checked
             
             item.setCheckState(state_to_set)
+
+    
+    def sl_menu_bar_trigger(self, q_action: QAction):
+        """ Triggered when a menu selection is made in LyricManager.
+
+        It would preferrable to to directly connect a function to a menu signal. Unfortunately, at the time of writing
+        the only approach to get to a menu option's signal is to iterate through all the menu widget's .actions().
+        This apparently needs to be executed recursively, i.e. actions within actions for all menu options.
+
+        This 'all actions' trigger is a simpler approach, for now.
+        """
+
+        # We intentionally match on a menu options 'objectName' as opposed to it's 'text' (label), as a label may
+        # be repeated across the entire menu.
+        #tt = q_action.text()
+        action_object_name = q_action.objectName()
+
+        if action_object_name == "actionAbout_LyricManager":
+            QMessageBox.about(
+                self.widget_main_window,
+                f"About LyricManager v{DeveloperOptions.version}",
+                (
+                    "Developed by Lasse Farnung Laursen.\n"
+                    "https://github.com/Gazoo101/lyric-manager\n"
+                    "\n"
+                    "Awesome Testers:\n"
+                    "Robert Santoro"
+                )
+            )
 
 
 def main():
