@@ -1,12 +1,32 @@
-# screen test
+<div align="center">
+
+<div id="user-content-toc">
+  <ul>
+    <summary><h1 style="display: inline-block;">Lyric Manager</h1></summary>
+  </ul>
+</div>
+	
+:speech_balloon::musical_note: **Lyric Manager is an open source, music lyric manager to align lyrics to your song collection!**
+
+---
 
 ![Screenshot](./docs/images/Capture.png)
 
-# Work-in-progress Warning
+</div>
 
-This tool is being *heavily* re-written and does not function as intended currently.
+# :sparkles: Features
 
-# Lyric Manager
+- Two interface flavors
+  - Graphical-User Interface
+  - Command-Line Interface
+- Supports fetching lyrics from three sources
+  - Local text file
+  - Pypi lyricsgenius genius db
+  - Pypi lyric_extractor using GCS
+- Supports one aligner
+  - NUSLyrixAutoAlign
+
+# Introduction
 
 Lyric Manager's primary function is support automatic song and lyric aligment. Specifically, given an .mp3 file Lyric Manager will query various lyric sources including, but not limited to:
 
