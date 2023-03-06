@@ -66,7 +66,7 @@ To get the full benefits of Lyric Manager, you'll have to configure some fetcher
 
 Lyric Manager supports the following sources:
 
-- Local `.txt` file with the same name as the audio file, e.g. "Artist - Song Name.txt" would accompany "Artist - Song Name.mp3". Place this file next to your audio or in Lyric Manager's working directory.
+- Local `.txt` file with the same name as the audio file, e.g. `Artist - Song Name.txt` would accompany `Artist - Song Name.mp3`. Place this file next to your audio or in Lyric Manager's working directory.
 - Genius lyrics database. An API key will be required, visit that [Genius docs](https://docs.genius.com/) for a link to generating a client access token.
 - Google Custom Search API. You'll need an API Key and Engine ID of Google Custom Search JSON API which you setup. The [requirements section for the Pypi package lyrics-extractor](https://pypi.org/project/lyrics-extractor/) explains how to set this up.
 
