@@ -19,26 +19,67 @@
 - Two interface flavors
   - Graphical-User Interface
   - Command-Line Interface
-- Supports fetching lyrics from three sources
+- Fetches lyrics from three sources
   - Local text file
   - Pypi lyricsgenius genius db
   - Pypi lyric_extractor using GCS
 - Supports one aligner
   - NUSLyrixAutoAlign
+- Generates `.json` file containing lyric structure and timing data useful for rendering lyric visuals via other tools such as [PlanMixPlay](http://www.planmixplay.com/)
 
 # Introduction
 
-Lyric Manager's primary function is support automatic song and lyric aligment. Specifically, given an .mp3 file Lyric Manager will query various lyric sources including, but not limited to:
+Lyric Manager's fetches lyrics and aligns them to music. Finally, it generates a `.json` file containing lyric structure and timing data. Lyric Manager is primarily a 'glue tool' and relies heavily on external resources for both the fetching and aligning on lyrics. In other words, the tool is most functional in conjunction with other tools, some of which require a bit of setup. For more details, read the [setup section](https://github.com/Gazoo101/lyric-manager/edit/main/README.md#setup).
 
-- Local .txt files
-- Remote lyric databases
+## Who is Lyric Manager for?
 
-to obtain the songs lyrics. Using the song.mp3 file and song.txt lyric file, Lyric Manager will use these files in conjunction with a lyric aligner. For now, Lyric Manager only utilises NUSAutoLyrixAlign and is optimized for its output. However, the framework is supportive of other alignment tools as needed.
+Given that Lyric Manager is a 'glue tool' and requires additional external tools to fully work, it's likely most useful for:
+- Developers who want to work with audio and lyrics
+- People who are keen to generate data for external tools (like [PlanMixPlay](http://www.planmixplay.com/)) to create lyric-based visuals, see video below.
+
+<div align="center">
+  <a href="https://www.youtube.com/watch?v=_J1hhTWgCXM"><img src="https://img.youtube.com/vi/_J1hhTWgCXM/0.jpg" alt="IMAGE ALT TEXT"></a>
+</div>
+
 
 # Requirements
 
-- Python 3.7+ (due to its reliance on dataclass)
-- Ubuntu 20.04 for Gui (due to reliance on Qt6)
+- Operating System
+  - Windows 8 or newer - GUI or CLI - Lyric fetching *only* - Alignment files must be generated in Linux.
+  - Ubuntu 20.04 or newer - GUI or CLI 
+  - Ubuntu 18.04 - CLI only (GUI uses Qt6 which doesn't work out-of-the-box on this ubuntu version or older)
+  
+If running Lyric Manager directly via a Python interpreter, you'll likely need at least 3.8. It's only actively tested with 3.11 though.
+
+# Setup
+
+Setting up Lyric Manager itself is easy:
+
+- Download a [binary release](https://github.com/Gazoo101/lyric-manager/releases) (Windows GUI binary only)
+  - Happy to make more pre-compiled versions available if sufficient interest arises
+- Install Python 3.7 or newer and then...
+  - Check-out the repository, install Python package requirements via `requirements.txt`, run GUI / CLI version as needed
+
+To get the full benefits of Lyric Manager, you'll have to configure some fetcher sources as well as an aligner.
+
+## LyricFetcher sources
+
+Lyric Manager supports the following sources:
+
+- Local `.txt` file with the same name as the audio file, e.g. "Artist - Song Name.txt" would accompany "Artist - Song Name.mp3". Place this file next to your audio or in Lyric Manager's working directory.
+- Genius lyrics database. An API key will be required, visit that [Genius docs](https://docs.genius.com/) for a link to generating a client access token.
+- Google Custom Search API. You'll need an API Key and Engine ID of Google Custom Search JSON API which you setup. The [requirements section for the Pypi package lyrics-extractor](https://pypi.org/project/lyrics-extractor/) explains how to set this up.
+
+## LyricAligners
+
+Lyric Manager currently only supports one aligner:
+
+- [NUSAutoLyrixAlign](https://github.com/chitralekha18/AutoLyrixAlign) which runs via Singularity on Linux.
+  - I can confirm it works on Ubuntu 22.04 after some minor patching work.
+
+Text below this line is out-of-date and is being revised.
+
+---
 
 # Input / Output
 
