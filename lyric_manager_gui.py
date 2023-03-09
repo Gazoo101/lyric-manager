@@ -2,6 +2,8 @@
 import os
 import sys
 import logging
+import webbrowser
+from enum import Enum
 from pathlib import Path
 from typing import Optional, List
 
@@ -9,22 +11,27 @@ from typing import Optional, List
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QMainWindow, QListWidget, QPlainTextEdit, QListWidgetItem, QAbstractItemView, QSplitter
 from PySide6.QtWidgets import QRadioButton, QTableWidget, QTableWidgetItem, QProgressBar, QPushButton, QCheckBox 
-from PySide6.QtWidgets import QMessageBox, QMenuBar
+from PySide6.QtWidgets import QMessageBox, QMenuBar, QComboBox
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QDir, qDebug, QSettings
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 
 # 1st Party
 from src.developer_options import DeveloperOptions
+
+from src.components.audio_artist_and_song_name_source import AudioArtistAndSongNameSource
+from src.components.github_repository_version_check import GithubRepositoryVersionCheck
 
 from src.gui import GuiWorker
 from src.gui import LoggingHandlerSignal
 from src.gui import ProgressItemGeneratorGUI
 from src.gui import QListWidgetDragAndDrop
-
+from src.gui import ComboBoxEnum
 
 from src.lyric_manager_base import LyricManagerBase
 from src.lyric_processing_config import Settings
+from src.lyric_processing_config import FileCopyMode
+from src.lyric_processing_config import AlignedLyricsOutputMode
 from src.lyric.dataclasses_and_types import LyricFetcherType
 from src.lyric.dataclasses_and_types import LyricAlignerType
 from src.lyric.dataclasses_and_types import LyricAlignTask
@@ -128,7 +135,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # For more complicated things, this might not work as easily...
         #self.test_config = Config() # no - undo...
 
-        self._setup_ui("./resources/lyric_manager_v3.ui")
+        self._setup_ui("./resources/lyric_manager_v4.ui")
         self._load_ui_settings()
         
         self.widget_main_window.setWindowTitle(f"LyricManager v. {DeveloperOptions.version}")
@@ -153,6 +160,12 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         if DeveloperOptions.automatically_start_processing():
             self.start_processing()
 
+    def _create_combo_box_enum(self, widget_name: str, enum_value: Enum, settings_name: str) -> ComboBoxEnum:
+        q_widget: QComboBox = self.widget_main_window.findChild(QComboBox, widget_name)
+        if q_widget:
+            return ComboBoxEnum(q_widget, type(enum_value), enum_value, settings_name, self.q_settings)
+        
+        return None
 
     def _setup_ui(self, path_to_ui_file : str):
         """ Loads a Qt .ui interface via the path provided, and sets up static/dynamic widget behavior.
@@ -169,6 +182,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         #qDebug("helpsors")
 
         self.widget_main_window : QMainWindow = QUiLoader().load(path_to_ui_file)
+
+        # Set icon
+        # https://stackoverflow.com/questions/17034330/how-to-include-resource-file-in-cx-freeze-binary
+        icon = QIcon("./resources/lyric_manager.ico")
+        self.widget_main_window.setWindowIcon(icon)
 
         self.widget_songs_processed: QTableWidget = self.widget_main_window.findChild(QTableWidget, "tableWidget_songs_processed")
 
@@ -202,6 +220,15 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         ### Dynamic GUI Behavior
         self.widget_local_data_sources = self._setup_widget_local_data_sources()
 
+        # We obtain the default values for our enum-based ComboBoxes form a default Settings object
+        settings = Settings()
+
+        self.widget_artist_song_name_source = \
+            self._create_combo_box_enum("comboBox_artist_song_name_source", settings.data.input.artist_song_name_source, "Processing/artist_song_name_source")
+        self.widget_file_copy_mode = \
+            self._create_combo_box_enum("comboBox_file_copy_mode", settings.data.output.aligned_lyrics_file_copy_mode, "Processing/file_copy_mode")
+        self.widget_aligned_lyrics_output_mode = \
+            self._create_combo_box_enum("comboBox_aligned_lyrics_output_mode", settings.data.output.aligned_lyrics_output_mode, "Processing/aligned_lyrics_output_mode")
 
         # Set 'Delete' key to remove executable entries if the widget is active
         QtGui.QShortcut(QtGui.QKeySequence("Delete"), self.widget_local_data_sources, self.widget_local_data_sources.remove_selected_items, context=QtCore.Qt.WidgetShortcut)
@@ -292,6 +319,10 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self._set_checkbox_settings_value("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
         self._set_checkbox_settings_value("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
 
+        self.widget_artist_song_name_source.save_setting()
+        self.widget_file_copy_mode.save_setting()
+        self.widget_aligned_lyrics_output_mode.save_setting()
+
 
     def start_processing(self):
         """ Starts LyricManager's lyric fetching and alignment.
@@ -318,6 +349,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         settings.data.output.overwrite_existing_generated_files = self.overwrite_existing_generated_files
         settings.data.output.path_to_working_directory = self.path_to_working_directory
         settings.data.output.path_to_reports = self.path_to_reports
+
+        #settings.data.output.aligned_lyrics_file_copy_mode = FileCopyMode.Disabled
 
         # These still need to be set
         # settings.data.output.aligned_lyrics_file_copy_mode = None
@@ -589,9 +622,65 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
                     "https://github.com/Gazoo101/lyric-manager\n"
                     "\n"
                     "Awesome Testers:\n"
-                    "Robert Santoro"
+                    "Robert Santoro\n"
+                    "Ryan-Kaye Simmons\n"
+                    "Rolf 'shargo' Karlsson"
                 )
             )
+
+
+    def show_dialog_message_box_if_new_version_has_been_released(self):
+        """ Presents the user with a dialogue box if there's a new release of LyricManager that the user has yet to be informed of.
+
+        To keep user-pestering to a bare minimum, we keep track of which latest version of LyricManager we're aware of.
+        Only if the user has yet to be informed of a new release do we provide them with a dialogue about this.
+        
+        """
+        latest_known_release = self.q_settings.value("LatestKnownRelease", DeveloperOptions.version)
+        newer_release = GithubRepositoryVersionCheck.get_newer_version_if_available(latest_known_release)
+
+        # If the latest release is already 'known', even if potentially newer, we don't inform the user
+        if newer_release is None:
+            return
+
+        message_box = QMessageBox()
+        message_box.setIcon(QMessageBox.Icon.Information)
+        message_box.setWindowTitle('New version available!')
+
+        # Setting the width of a QMessageBox is an uphill struggle. Apparently a spacer can do the trick, but we manage
+        # with setting the CSS in the QMessageBox
+        #width = "130"
+        #message_box.setStyleSheet("QLabel{width: "+width+"px; min-width: "+width+"px; max-width: "+width+"px;}")
+
+        message_box.setText((
+            "Detected newer release of LyricManager!\n"
+            "\n"
+            f"Your version: {DeveloperOptions.version}\n"
+            f"New version: {newer_release}"
+            "\n"
+            "Would you like to visit Github to download this new release?"
+        ))
+        message_box.setStandardButtons(QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No|QMessageBox.StandardButton.Ignore)
+        message_box.setDefaultButton(QMessageBox.StandardButton.Yes)
+
+        button_yes = message_box.button(QMessageBox.StandardButton.Yes)
+        button_yes.setText('Yes')
+
+        button_ignore = message_box.button(QMessageBox.StandardButton.Ignore)
+        button_ignore.setText("No, and don't remind me about this release again.")
+
+        button_no = message_box.button(QMessageBox.StandardButton.No)
+        button_no.setText('Maybe later')
+        message_box.exec()
+
+        if message_box.clickedButton() == button_yes:
+            webbrowser.open("https://github.com/Gazoo101/lyric-manager/releases")
+            self.q_settings.setValue("LatestKnownRelease", newer_release)
+        elif message_box.clickedButton() == button_no:
+            pass # 'No', which is 'Maybe' just closes the Dialog.
+        elif message_box.clickedButton() == button_ignore:
+            self.q_settings.setValue("LatestKnownRelease", newer_release)
+
 
 
 def main():
@@ -603,14 +692,16 @@ def main():
 
         application.execution_mode()
 
+        application.show_dialog_message_box_if_new_version_has_been_released()
+
         return_value = qt_application.exec()
-        sys.exit(return_value)
+        
     except BaseException as e:
         logging.critical(sys.exc_info())
         logging.exception(f"Uncaught Exception: {e}")
         raise e
-
-    #sys.exit(qt_application.exec())
+    
+    sys.exit(return_value)
 
 if __name__ == '__main__':
     main()    

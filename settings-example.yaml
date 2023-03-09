@@ -43,6 +43,11 @@ data:
       - ~/path/to/your/music
       - ~/another/path/to/music
 
+    # How LyricManager should determine an audio files artist and songname
+    # artist_song_name_source: FileName - LyricManager expects songs to adhere to this naming convention "Artist - Song Name.mp3".
+    # artist_song_name_source: FileTags - LyricManager will derive the Artist and Song Name information from the audio file tags if possible.
+    artist_song_name_source: FileName
+
     # Any folders added here will be excluded from processing. Mainly useful for recursive parsing.
     folders_to_exclude:
 

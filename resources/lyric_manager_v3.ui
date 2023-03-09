@@ -191,7 +191,7 @@
               </column>
               <column>
                <property name="text">
-                <string>Progress</string>
+                <string>% of lyrics aligned</string>
                </property>
               </column>
               <column>

@@ -60,17 +60,23 @@ class LyricFetcherLocalFile(LyricFetcherBase):
         if not path_to_lyric_txt_file:
             return lyrics
         
-        file_content, lyric_validity = self._fetch_lyrics_payload(path_to_lyric_txt_file)
+        file_content = self._fetch_lyrics_payload(path_to_lyric_txt_file)
         lyrics.text_raw = file_content
-        lyrics.text_sanitized = file_content
+
+        # Local text fetcher does *not* save sanitized text.
+        text_lines = lyrics.text_raw.splitlines()
+        text_lines_sanitized = self._sanitize_lyrics_raw(text_lines)
+        lyrics.text_sanitized = '\n'.join(text_lines_sanitized)
+
+        # This should be detected elsewhere I think...
         lyrics.contains_multipliers = False # To be fixed!
-        lyrics.validity = lyric_validity
+        lyrics.validity = LyricValidity.Valid
 
         return lyrics
     
 
-    def _fetch_lyrics_payload(self, path_to_lyric_txt_file:Path) -> Tuple[str, LyricValidity]:
-        return self._read_file_utf8(path_to_lyric_txt_file, LyricValidity.Valid)
+    def _fetch_lyrics_payload(self, path_to_lyric_txt_file:Path) -> str:
+        return self._read_file_utf8(path_to_lyric_txt_file)
 
     def _get_lyric_text_raw_from_source(self, source) -> str:
         """ Each fetcher will have a somewhat different source, so we must implement this - rewrite this code description. """
@@ -119,7 +125,7 @@ class LyricFetcherLocalFile(LyricFetcherBase):
 
     """ See LyricFetcherInterface.sanitize_raw_lyrics() for description. """
     def _sanitize_lyrics_raw(self, lyrics_raw: List[str]) -> List[str]:
-        lyrics = audio_lyric_align_task.lyric_text_raw
+        lyrics = lyrics_raw
 
         # We remove []'s and their contents inside
         lyrics_list = self.lyric_sanitizer.remove_non_lyrics(lyrics)

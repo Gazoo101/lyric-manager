@@ -11,6 +11,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [0.7]
+### Added
+- Github version check to inform users when a new release occurs.
+- Multiple previously CLI-only settings now exposed in GUI (note they're not all currently functional)
+- Support for getting artist and song name/title from mp3 tags, as opposed to from filename
+- Icon for the application
+
+### Changed
+- Changed GUI to give more space to 'folders to process' list and encapsulate settings in tabbed pages.
+- NUSAutoLyrixAligner made more tolerant to missing paths/files to allow for use of previously cached output.
+- Fixed broken local filename lyric fetcher
+- Application exit procedure from generating an exception when application closes in a 'normal' fashion
+
+### Removed
+
 
 ## [0.5]
 ### Added

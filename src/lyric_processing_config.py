@@ -11,6 +11,8 @@ from omegaconf import MISSING
 from .lyric.dataclasses_and_types import LyricFetcherType
 from .lyric.dataclasses_and_types import LyricAlignerType
 
+from .components import AudioArtistAndSongNameSource
+
 
 class FileCopyMode(Enum):
     Disabled = auto()
@@ -22,7 +24,7 @@ class AlignedLyricsOutputMode(Enum):
     Compact = auto()
 
 
-    
+
 @dataclass
 class SettingsLyricFetching():
     sources: List[LyricFetcherType] = MISSING
@@ -48,6 +50,8 @@ class SettingsDataInput():
 
     recursively_process_paths: bool = False
 
+    artist_song_name_source: AudioArtistAndSongNameSource = AudioArtistAndSongNameSource.FileName
+
 
 
 @dataclass
@@ -56,7 +60,7 @@ class SettingsDataOutput():
 
     path_to_reports: Path = MISSING
 
-    aligned_lyrics_file_copy_mode: FileCopyMode = FileCopyMode.SeparateDirectory
+    aligned_lyrics_file_copy_mode: FileCopyMode = FileCopyMode.Disabled
 
     path_to_output_aligned_lyrics: Optional[Path] = field(default_factory=Path)
 

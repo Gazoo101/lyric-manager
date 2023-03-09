@@ -70,17 +70,21 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         self.path_aligner = path_to_aligner
         self.path_to_output_dir = path_to_output_dir
 
+        self.aligner_functional = False
+
         if not path_to_aligner:
-            raise Exception("No path to NUSAutoLyrixAlign provided. No alignment can take place.")
+            logging.warning("No path to NUSAutoLyrixAlign provided, can only run on cached alignment output files.")
+            return
 
         # Find critical files
         path_to_alignment_script = path_to_aligner / "RunAlignment.sh"
         path_to_singularity_image = path_to_aligner / "kaldi.simg"
 
-        self.aligner_functional = True
         if not path_to_alignment_script.exists() or not path_to_singularity_image.exists():
             logging.warning("NUSAutoLyrixAlign is missing vital files to execute properly, can only run on cached files.")
-            self.aligner_functional = False
+            return
+        
+        self.aligner_functional = True
 
 
     def _convert_to_wordandtiming(self, path_to_aligned_lyrics):

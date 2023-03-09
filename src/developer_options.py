@@ -14,7 +14,9 @@ class DeveloperOptions():
 
 
     """ Major options """
-    version = 0.5
+
+    # Version is represented as a string so we can graduate to x.y.z versioning in the near-future
+    version: str = "0.7"
 
     class ExecutionMode(Enum):
         # Standard internal release. Should override all debugging related options.
@@ -53,7 +55,7 @@ class DeveloperOptions():
         return cls.is_release() or cls.gui_multithreading_enabled
     
     logging_level = logging.INFO
-    logging_level = logging.DEBUG
+    #logging_level = logging.DEBUG
 
     @classmethod
     def get_logging_level(cls):
@@ -66,7 +68,7 @@ class DeveloperOptions():
     """ Minor options """
 
     gui_automatically_start_processing = False
-    gui_automatically_start_processing = True
+    #gui_automatically_start_processing = True
 
     @classmethod
     def automatically_start_processing(cls):

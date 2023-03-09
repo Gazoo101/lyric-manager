@@ -50,15 +50,16 @@ options = {
         # *Substantially* reduces the size of the created frozen package.
         "zip_include_packages": ["PySide6"],
         "include_files": [
-            ("resources/lyric_manager_v3.ui", "resources/lyric_manager_v3.ui")
+            ("resources/lyric_manager_v4.ui", "resources/lyric_manager_v4.ui"),
+            ("resources/lyric_manager.ico", "resources/lyric_manager.ico")
         ]
     }
 }
 
 executables = [Executable(
     "lyric_manager_gui.py",
-    base=base
-    #icon="resources/nameofanicon.ico"
+    base=base,
+    icon="resources/lyric_manager.ico"
 )]
 
 setup(

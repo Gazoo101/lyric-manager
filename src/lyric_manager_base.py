@@ -9,16 +9,17 @@ from pathlib import Path
 from datetime import datetime
 from typing import TYPE_CHECKING, Union
 
-
 # 3rd Party
 
 
 # 1st Party
 from .developer_options import DeveloperOptions
-from .components import ObjectFactory
 
+from .components import AudioArtistAndSongNameSource
+from .components import ObjectFactory
 from .components import get_percentage_and_amount_string
 from .components import FileOperations
+from .components import GithubRepositoryVersionCheck
 
 from .lyric.dataclasses_and_types import LyricAlignTask
 from .lyric.dataclasses_and_types import LyricAlignerType
@@ -69,6 +70,12 @@ class LyricManagerBase:
 
         self._init_logger(self.path_to_application)
 
+        newer_version = GithubRepositoryVersionCheck.get_newer_version_if_available(DeveloperOptions.version)
+
+        if newer_version:
+            logging.info(f"A newer version of LyricManager ({newer_version}) has been released!")
+            logging.info(f"To download, visit: https://github.com/Gazoo101/lyric-manager/releases")
+
         # LyricManager expects to have the current working directory set to its base execution
         os.chdir(self.path_to_application)
         logging.info(f"Current working directory: {os.getcwd()}")
@@ -89,6 +96,7 @@ class LyricManagerBase:
         self.extension_alignment_ready = ".alignment_ready"
 
         self.recognized_audio_filename_extensions = ["mp3", "wav", "aiff"]
+
 
 
     def _valid_audio_extension(self, filename: str):
@@ -243,7 +251,7 @@ class LyricManagerBase:
 
         logging.info(f"Found {len(all_audio_files)} audio files to process.")
 
-        tasks = self._create_lyric_align_tasks_from_paths(all_audio_files)
+        tasks = self._create_lyric_align_tasks_from_paths(settings.data.input.artist_song_name_source, all_audio_files)
 
         # Design commentary:
         # Tasks are deliberately encapsulated into multiple functionally independent loops, as opposed to undertaking
@@ -300,19 +308,35 @@ class LyricManagerBase:
         return all_audio_files
     
 
-    def _create_lyric_align_tasks_from_paths(self, paths_to_audio_files: list) -> list[LyricAlignTask]:
+    def _create_lyric_align_tasks_from_paths(self, 
+                                             audio_song_name: AudioArtistAndSongNameSource,
+                                             paths_to_audio_files: list) -> list[LyricAlignTask]:
         """ Turns a list of paths to audio files into AudioLyricAlignTask objects """
         lyric_align_tasks = []
 
-        for path_to_audio_file in paths_to_audio_files:
-            try:
-                # If the audio filename cannot be properly decomposed into Artist - Song, the constructor will throw
-                task = LyricAlignTask(path_to_audio_file)
+        if audio_song_name == AudioArtistAndSongNameSource.FileName:
+
+            for path_to_audio_file in paths_to_audio_files:
+
+                task = LyricAlignTask.create_prefer_artist_song_name_from_filename(path_to_audio_file)
+
+                if not task:
+                    logging.warning("Invalid LyricAlignTask - Skipping.")
+                    continue
+
                 lyric_align_tasks.append(task)
-            except IndexError:
-                logging.warning(f"The audio filename: '{path_to_audio_file}' was malformed.")
-            except:
-                logging.exception(f"Unable to convert '{path_to_audio_file}' into Task object.")
+
+        elif audio_song_name == AudioArtistAndSongNameSource.FileTags:
+
+            for path_to_audio_file in paths_to_audio_files:
+
+                task = LyricAlignTask.create_prefer_artist_song_name_from_tags(path_to_audio_file)
+
+                if not task:
+                    logging.warning("Invalid LyricAlignTask - Skipping.")
+                    continue
+
+                lyric_align_tasks.append(task)
 
         return lyric_align_tasks
     
@@ -349,7 +373,7 @@ class LyricManagerBase:
         #     return lyric_align_task
 
         # We must detect multipliers before sanitizing the lyrics...
-        lyric_align_task.detected_multiplier = self.lyric_sanitizer.contains_multipliers(lyric_align_task.lyric_payload.contains_multipliers)
+        lyric_align_task.detected_multiplier = self.lyric_sanitizer.contains_multipliers(lyric_align_task.lyric_payload.text_sanitized)
 
         lyric_align_task.lyric_text_expanded = self.lyric_expander.expand_lyrics(lyric_align_task.path_to_audio_file.stem, lyric_align_task.lyric_payload.text_sanitized)
 
