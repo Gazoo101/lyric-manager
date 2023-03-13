@@ -2,10 +2,10 @@
 import requests
 import json
 import logging
-from packaging import version
 from typing import Optional
 
 # 3rd Party
+from packaging import version
 
 
 # 1st Party

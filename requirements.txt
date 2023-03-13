@@ -3,3 +3,5 @@ lyrics_extractor
 omegaconf
 jsonpickle
 tqdm
+packaging
+eyed3
