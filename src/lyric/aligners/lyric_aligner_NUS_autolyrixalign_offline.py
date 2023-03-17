@@ -51,22 +51,22 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
           not return within a reasonable amount of time.
     """
 
-    def __init__(self, path_temp_dir: Path, path_to_aligner: Path, path_to_output_dir: Path = None):
+    def __init__(self, path_aligner_temp_dir: Path, path_to_aligner: Path, path_to_output_dir: Path = None):
         """
 
         Args:
-            path_temp_dir:
+            path_aligner_temp_dir: A path without spaces for NUSAutoLyrixAlign to align audio with lyrics.
             path_to_aligner:
             path_to_output_dir: If 'None' output files will be placed next to processed files, otherwise
                 they'll be place in the path specified in this parameter.
         """
 
-        if " " in str(path_temp_dir):
+        if " " in str(path_aligner_temp_dir):
             error = "LyricAlignerNUSAutoLyrixAlignOffline cannot function with a temporary path containing spaces."
             logging.fatal(error)
             raise RuntimeError(error)
 
-        super().__init__(".nusalaoffline", path_temp_dir, path_to_output_dir)
+        super().__init__(".nusalaoffline", path_aligner_temp_dir, path_to_output_dir)
         self.path_aligner = path_to_aligner
         self.path_to_output_dir = path_to_output_dir
 
@@ -160,7 +160,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         # The most dependable way to ensure that the NUSAutoLyrixAlign process succeeded, is to
         # check if the temporary output file has been updated.
         if path_temp_file_lyric_aligned.exists() == False:
-            logging.warning(f"Unable to create lyrics for {path_to_audio_file}")
+            logging.warning(f"Unable to create aligned lyrics for {path_to_audio_file}")
             return []
 
         datetime_lyric_aligned = datetime.fromtimestamp(path_temp_file_lyric_aligned.stat().st_ctime)
@@ -168,6 +168,10 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         if datetime_before_alignment > datetime_lyric_aligned:
             logging.warning('Lyric aligned existed before completion O_o')
             return []
+
+        # CONTINUE
+        # CONTINUE HERE - we need to copy the aligned lyrics file to the working directory.
+        # it's currently being copied next to the audio file, it should go to the working dir
 
         # While we're building this tool, we'll maintain copies of the aligned lyrics in order
         # to repeat the 'aligned lyrics' => 'json lyrics' code
@@ -186,8 +190,8 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         # TODO: Upgrade to handle mp3 to wav conversion as that seems to go side-ways for Singularity...
         # Update, fixing conversion didn't help, it's in the scipy call that things go off the rails...
 
-        path_temp_file_audio: Path = self.path_temp_dir / "audio.notset"
-        path_temp_file_lyric: Path = self.path_temp_dir / "lyric.txt"
+        path_temp_file_audio: Path = self.path_aligner_temp_dir / "audio.notset"
+        path_temp_file_lyric: Path = self.path_aligner_temp_dir / "lyric.txt"
 
         # Update the temporary file suffix (.notset), to the proper audio file extension, e.g. .mp3 or .wav or .aiff
         path_temp_file_audio = path_temp_file_audio.with_suffix(path_to_audio_file.suffix)
@@ -195,7 +199,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         FileOperations.copy_and_rename(path_to_audio_file, path_temp_file_audio)
         FileOperations.copy_and_rename(path_to_lyric_input, path_temp_file_lyric)
 
-        path_temp_file_lyric_aligned = self.path_temp_dir / "lyric_aligned.txt"
+        path_temp_file_lyric_aligned = self.path_aligner_temp_dir / "lyric_aligned.txt"
 
         process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
 

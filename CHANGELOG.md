@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed bug where LyricManager would occasionally only recognize .mp3 files, and not other valid types of audio files.
 - Reduced superfluous error messages.
 - Fixed bug related to NUSAutoLyrixAlign working directory not being saved properly
+- Fixed line-edit widgets delivering strings as opposed to Path objects further on to the alignment pipeline
 
 ### Removed
 

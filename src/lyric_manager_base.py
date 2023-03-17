@@ -162,12 +162,12 @@ class LyricManagerBase:
     def _create_lyric_aligner(self, type: LyricAlignerType, settings: Settings):
 
         lyric_aligner_parameters = {
-            "path_temp_dir": self.path_to_working_directory, # improve this
+            "path_to_output_dir": self.path_to_working_directory, # improve this
         }
 
         if type == LyricAlignerType.NUSAutoLyrixAlignOffline:
+            lyric_aligner_parameters["path_aligner_temp_dir"] = settings.lyric_alignment.NUSAutoLyrixAlign_working_directory
             lyric_aligner_parameters["path_to_aligner"] = settings.lyric_alignment.NUSAutoLyrixAlign_path
-            lyric_aligner_parameters["path_to_output_dir"] = settings.lyric_alignment.NUSAutoLyrixAlign_working_directory
             
             # think about this...
             #raise Exception("This has yet to be fixed - the outputdir doesn't exist and NUSAutoLyrix align likely needs 2 dirs.")

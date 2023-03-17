@@ -408,8 +408,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         settings.lyric_fetching.google_custom_search_engine_id = self.gui_google_custom_search_engine_id
 
         settings.lyric_alignment.method = selected_aligner_type
-        settings.lyric_alignment.NUSAutoLyrixAlign_path = self.gui_path_to_NUSLyrixAutoAlign
-        settings.lyric_alignment.NUSAutoLyrixAlign_working_directory = self.gui_path_to_NUSLyrixAutoAlign_working_directory
+        settings.lyric_alignment.NUSAutoLyrixAlign_path = Path(self.gui_path_to_NUSLyrixAutoAlign)
+        settings.lyric_alignment.NUSAutoLyrixAlign_working_directory = Path(self.gui_path_to_NUSLyrixAutoAlign_working_directory)
 
         settings.data.input.paths_to_process = paths_to_process
         settings.data.input.recursively_process_paths = self.recursively_parse_folders_to_process
@@ -422,7 +422,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         settings.data.output.aligned_lyrics_file_copy_mode = self.widget_file_copy_mode.get_value_as_enum()
         settings.data.output.aligned_lyrics_formatting = self.widget_aligned_lyrics_output_mode.get_value_as_enum()
 
-        settings.data.output.path_to_output_aligned_lyrics = self.gui_path_to_aligned_lyrics_copy
+        settings.data.output.path_to_output_aligned_lyrics = Path(self.gui_path_to_aligned_lyrics_copy)
 
         # TODO: Re-visit if passing in this worker in the single-threaded context is the best single threaded approach.
         worker = GuiWorker(None)

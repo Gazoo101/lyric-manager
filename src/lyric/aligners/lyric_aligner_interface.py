@@ -20,13 +20,13 @@ class WordAndTiming():
 
 class LyricAlignerInterface(ABC):
 
-    def __init__(self, file_extension, path_temp_dir, path_to_output_dir: Path = None):
+    def __init__(self, file_extension, path_aligner_temp_dir, path_to_output_dir: Path = None):
         self.file_extension = file_extension
 
-        self.path_temp_dir = path_temp_dir
+        self.path_aligner_temp_dir = path_aligner_temp_dir
 
-        logging.info(f"LyricAligner Temp path: {self.path_temp_dir}")
-        self.path_temp_dir.mkdir(parents=True, exist_ok=True)
+        logging.info(f"LyricAligner Temp path: {self.path_aligner_temp_dir}")
+        self.path_aligner_temp_dir.mkdir(parents=True, exist_ok=True)
         self.path_to_output_dir = path_to_output_dir
 
 
