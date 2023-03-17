@@ -96,7 +96,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
     gui_google_custom_search_engine_id = bind_class_property_to_qt_widget_property("lineEdit_google_custom_search_engine_id", "text")
 
     gui_path_to_NUSLyrixAutoAlign = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign", "text")
-    gui_path_to_NUSLyrixAutoAlign_working_directory = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign", "text")
+    gui_path_to_NUSLyrixAutoAlign_working_directory = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign_working_directory", "text")
 
     gui_path_to_aligned_lyrics_copy = bind_class_property_to_qt_widget_property("lineEdit_path_to_aligned_lyrics_copy", "text")
 

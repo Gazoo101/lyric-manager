@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Paths to individual audio files, as well as folders, is now supported.
 - Fixed bug where LyricManager would occasionally only recognize .mp3 files, and not other valid types of audio files.
 - Reduced superfluous error messages.
+- Fixed bug related to NUSAutoLyrixAlign working directory not being saved properly
 
 ### Removed
 
