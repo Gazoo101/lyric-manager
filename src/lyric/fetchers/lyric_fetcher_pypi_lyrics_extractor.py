@@ -18,10 +18,12 @@ if TYPE_CHECKING:
 
 
 class LyricFetcherPyPiLyricsExtractor(LyricFetcherBase):
-    """ Retrieves Lyrics from PyPi's lyrics_extractor package which relies on...
+    """ Retrieves Lyrics from PyPi's lyrics_extractor package which relies on Google Custom Search (GCS).
 
-    Uses https://pypi.org/project/lyrics-extractor/
-    
+    The free version of GCS is rate-limited and LyricFetcherPyPiLyricsExtractor maintains a flag to determine whether
+    this quota has been met. If LyricManager is restarted this flag is reset.
+
+    PyPi Link: https://pypi.org/project/lyrics-extractor/
     """
 
     def __init__(self,

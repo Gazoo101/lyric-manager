@@ -10,3 +10,4 @@ from .lyric_aligner_type import LyricAlignerType
 from .lyric_fetcher_type import LyricFetcherType
 from .lyric_payload import LyricPayload
 from .lyric_validity import LyricValidity
+#from .lyric_validity import ValidityNew

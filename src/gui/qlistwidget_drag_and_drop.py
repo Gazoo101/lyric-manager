@@ -2,7 +2,7 @@
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 # 3rd Party
 from PySide6.QtWidgets import QListWidget, QListWidgetItem
@@ -28,12 +28,26 @@ class QListWidgetDragAndDrop(QListWidget):
 
     signal_file_dropped = QtCore.Signal(list)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, accepted_audio_filename_extensions:Optional[List[str]] = None):
         super(QListWidgetDragAndDrop, self).__init__(parent)
         self.setAcceptDrops(True)
         self.setIconSize(QtCore.QSize(72, 72))
 
         self._placeholder_text = ""
+
+        self.accepted_audio_filename_extensions = accepted_audio_filename_extensions
+
+
+    def _accepted_audio_extension(self, filename: str):
+        if self.accepted_audio_filename_extensions is None:
+            return False
+
+        for extension in self.accepted_audio_filename_extensions:
+            if filename.endswith(extension):
+                return True
+        
+        return False
+
 
 
     def add_paths(self, checked_paths: List[CheckedPath]):
@@ -139,16 +153,19 @@ class QListWidgetDragAndDrop(QListWidget):
             event.setDropAction(QtCore.Qt.CopyAction)
             event.accept()
             links = []
-            paths_to_folders = []
+            accepted_paths = []
             for url in mime_data.urls():
                 links.append(str(url.toLocalFile()))
                 path = Path(url.toLocalFile())
 
                 if path.is_dir():
-                    paths_to_folders.append(path)
+                    accepted_paths.append(path)
+
+                if self._accepted_audio_extension(path.name):
+                    accepted_paths.append(path)
 
             self.signal_file_dropped.emit(links)
-            self.add_paths_checked(paths_to_folders)
+            self.add_paths_checked(accepted_paths)
         else:
             event.ignore()
 

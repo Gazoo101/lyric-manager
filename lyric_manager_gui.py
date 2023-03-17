@@ -6,12 +6,13 @@ import webbrowser
 from enum import Enum
 from pathlib import Path
 from typing import Optional, List
+from functools import partial
 
 # 3rd Party
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QMainWindow, QListWidget, QPlainTextEdit, QListWidgetItem, QAbstractItemView, QSplitter
 from PySide6.QtWidgets import QRadioButton, QTableWidget, QTableWidgetItem, QProgressBar, QPushButton, QCheckBox 
-from PySide6.QtWidgets import QMessageBox, QMenuBar, QComboBox
+from PySide6.QtWidgets import QMessageBox, QMenuBar, QComboBox, QFileDialog, QLineEdit
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QDir, qDebug, QSettings
 from PySide6.QtGui import QAction, QIcon
@@ -93,6 +94,9 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
     gui_genius_token = bind_class_property_to_qt_widget_property("lineEdit_genius_token", "text")
     gui_google_custom_search_api_key = bind_class_property_to_qt_widget_property("lineEdit_google_custom_search_api_key", "text")
     gui_google_custom_search_engine_id = bind_class_property_to_qt_widget_property("lineEdit_google_custom_search_engine_id", "text")
+
+    gui_path_to_NUSLyrixAutoAlign = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign", "text")
+    gui_path_to_NUSLyrixAutoAlign_working_directory = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign", "text")
 
     
     def _get_checkbox_settings_value_or_default(self, q_settings_name: str, widget_q_checkbox_name):
@@ -217,6 +221,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         widget_start_processing = self.widget_main_window.findChild(QPushButton, "pushButton_start_processing")
 
+        widget_button_set_path_NUSAutoLyrixAlign: QPushButton = \
+            self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign")
+        widget_button_set_path_NUSAutoLyrixAlign_working_directory: QPushButton = \
+            self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign_working_directory")
+
         ### Dynamic GUI Behavior
         self.widget_local_data_sources = self._setup_widget_local_data_sources()
 
@@ -233,12 +242,35 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # Set 'Delete' key to remove executable entries if the widget is active
         QtGui.QShortcut(QtGui.QKeySequence("Delete"), self.widget_local_data_sources, self.widget_local_data_sources.remove_selected_items, context=QtCore.Qt.WidgetShortcut)
 
+        def open_directory_select_dialog_and_set_to_line_edit(qlineedit_widget_name: str):
+            """ Spawns a QFileDialog set to select a directory and applies the path to the QLineEdit with the given name. """
+            qline_edit_widget: QLineEdit = self.widget_main_window.findChild(QLineEdit, qlineedit_widget_name)
+            
+            dialog_path = QFileDialog.getExistingDirectory(
+                self.widget_main_window, "Open Directory",
+                str(self.path_to_application),
+                QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+            )
+            qline_edit_widget.setText(dialog_path)
+
+
+        widget_sam: QLineEdit = self.widget_main_window.findChild(QLineEdit, "lineEdit_path_to_NUSAutoLyrixAlign")
+        widget_sam.setText("and now...!")
+
+        #lineEdit_path_to_NUSAutoLyrixAlign | pushButton_set_path_to_NUSAutoLyrixAlign
+        #lineEdit_path_to_NUSAutoLyrixAlign_working_directory | pushButton_set_path_to_NUSAutoLyrixAlign_working_directory
 
         ### Slots and signals
         widget_start_processing.clicked.connect(self.start_processing)
 
         menu_bar: QMenuBar = self.widget_main_window.menuBar()
         menu_bar.triggered.connect(self.sl_menu_bar_trigger)
+
+        function_set_path_to_NUSAutoLyrixAlign = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_NUSAutoLyrixAlign")
+        widget_button_set_path_NUSAutoLyrixAlign.clicked.connect(function_set_path_to_NUSAutoLyrixAlign)
+
+        function_set_path_to_NUSAutoLyrixAlign_working_directory = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_NUSAutoLyrixAlign_working_directory")
+        widget_button_set_path_NUSAutoLyrixAlign_working_directory.clicked.connect(function_set_path_to_NUSAutoLyrixAlign_working_directory)
 
         # Iterate through all a menu's actions
         # for action in menu_bar.actions():
@@ -280,6 +312,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         if folders_to_process is not None:
             self.widget_local_data_sources.add_paths(folders_to_process)
 
+        self.gui_path_to_NUSLyrixAutoAlign = self.q_settings.value("Alignment/PathToNUSLyrixAutoAlign", None)
+        self.gui_path_to_NUSLyrixAutoAlign_working_directory = self.q_settings.value("Alignment/PathToNUSLyrixAutoAlignWorkingDirectory", None)
 
         self._get_checkbox_settings_value_or_default("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
         self._get_checkbox_settings_value_or_default("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
@@ -316,6 +350,9 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # Note, if paths_to_process is an empty list, Qt saves "@Invalid()" to disk
         self.q_settings.setValue("Processing/FoldersToProcess", paths_to_process)
 
+        self.q_settings.setValue("Alignment/PathToNUSLyrixAutoAlign", self.gui_path_to_NUSLyrixAutoAlign)
+        self.q_settings.setValue("Alignment/PathToNUSLyrixAutoAlignWorkingDirectory", self.gui_path_to_NUSLyrixAutoAlign_working_directory)
+
         self._set_checkbox_settings_value("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
         self._set_checkbox_settings_value("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
 
@@ -342,6 +379,9 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         settings.lyric_fetching.google_custom_search_engine_id = self.gui_google_custom_search_engine_id
 
         settings.lyric_alignment.method = selected_aligner_type
+        settings.lyric_alignment.NUSAutoLyrixAlign_path = self.gui_path_to_NUSLyrixAutoAlign
+        settings.lyric_alignment.NUSAutoLyrixAlign_working_directory = self.gui_path_to_NUSLyrixAutoAlign_working_directory
+
         settings.data.input.paths_to_process = paths_to_process
         settings.data.input.recursively_process_paths = self.recursively_parse_folders_to_process
         settings.data.input.folders_to_exclude = []
@@ -418,7 +458,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
 
     def _update_processed_table(self, lyric_align_tasks: list[LyricAlignTask]):
-        """ Updates """
+        """ Updates the processed table GUI widget communicating the % of matched lyrics and overall result of the given tasks. """
 
         # Clear rows without clearing the column names
         # Source: https://forum.qt.io/topic/85189/how-not-to-delete-column-names-in-qtablewidget
@@ -445,7 +485,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
             """
             progress_bar.setStyleSheet(progress_bar_animation_disabled)
 
-            item_note = QTableWidgetItem("No notes")
+            item_note = QTableWidgetItem(task.get_user_friendly_result())
 
             self.widget_songs_processed.setItem(index, index_filename, item_filename)
             self.widget_songs_processed.setCellWidget(index, index_progress, progress_bar)
@@ -467,7 +507,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # QListWidget to replace
         widget_list_folders_placeholder: QListWidget = self.widget_main_window.findChild(QListWidget, "listWidget_localDataSources")
 
-        widget_list_local_data_sources = QListWidgetDragAndDrop()
+        widget_list_local_data_sources = QListWidgetDragAndDrop(accepted_audio_filename_extensions=self.recognized_audio_filename_extensions)
         widget_list_local_data_sources.placeholder_text = "Drag and drop data source folders here..."
 
         # We need the layout containing the placeholder widget to replace it.
@@ -616,7 +656,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         if action_object_name == "actionAbout_LyricManager":
             QMessageBox.about(
                 self.widget_main_window,
-                f"About LyricManager v{DeveloperOptions.version}",
+                f"About LyricManager v {DeveloperOptions.version}",
                 (
                     "Developed by Lasse Farnung Laursen.\n"
                     "https://github.com/Gazoo101/lyric-manager\n"
@@ -704,4 +744,4 @@ def main():
     sys.exit(return_value)
 
 if __name__ == '__main__':
-    main()    
+    main()

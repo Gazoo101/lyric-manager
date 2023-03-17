@@ -116,7 +116,7 @@
            <item>
             <widget class="QLabel" name="label_3">
              <property name="text">
-              <string>Folders to process</string>
+              <string>Files and Folders to process</string>
              </property>
             </widget>
            </item>
@@ -172,6 +172,61 @@
                  </item>
                  <item>
                   <widget class="QLineEdit" name="lineEdit_google_custom_search_engine_id"/>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+             <widget class="QWidget" name="tab_4">
+              <attribute name="title">
+               <string>Lyric Aligner Settings</string>
+              </attribute>
+              <layout class="QVBoxLayout" name="verticalLayout_3">
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_9">
+                 <item>
+                  <widget class="QLabel" name="label_10">
+                   <property name="text">
+                    <string>Path to NUSAutoLyrixAlign:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_path_to_NUSAutoLyrixAlign"/>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pushButton_set_path_to_NUSAutoLyrixAlign">
+                   <property name="sizePolicy">
+                    <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                     <horstretch>0</horstretch>
+                     <verstretch>0</verstretch>
+                    </sizepolicy>
+                   </property>
+                   <property name="text">
+                    <string>...</string>
+                   </property>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_10">
+                 <item>
+                  <widget class="QLabel" name="label_11">
+                   <property name="text">
+                    <string>Path to NUSAutoLyrixAlign working directory:</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QLineEdit" name="lineEdit_path_to_NUSAutoLyrixAlign_working_directory"/>
+                 </item>
+                 <item>
+                  <widget class="QPushButton" name="pushButton_set_path_to_NUSAutoLyrixAlign_working_directory">
+                   <property name="text">
+                    <string>...</string>
+                   </property>
+                  </widget>
                  </item>
                 </layout>
                </item>

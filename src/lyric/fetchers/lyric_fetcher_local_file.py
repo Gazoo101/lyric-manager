@@ -19,6 +19,7 @@ from ..dataclasses_and_types import LyricValidity
 if TYPE_CHECKING:
     from ..dataclasses_and_types import LyricAlignTask
 
+
 class LyricFetcherLocalFile(LyricFetcherBase):
     """ Fetches local .txt files containing lyrics for a given song. """
 

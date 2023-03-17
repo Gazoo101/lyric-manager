@@ -3,7 +3,6 @@ import logging
 from pathlib import Path
 from dataclasses import dataclass, field
 
-
 # 3rd Party
 import eyed3
 
@@ -11,15 +10,23 @@ import eyed3
 from .lyric_payload import LyricPayload
 from ..lyric_matcher import MatchResult
 from .lyric_fetcher_type import LyricFetcherType
+from .lyric_validity import LyricValidity
 
-
-# TODO: Explain the 3 phases the text goes through
-
-# TODO: In the future, this dataclass should be able to house multiple lyric sources, for now, it can only manage
-# one.
 
 @dataclass
 class LyricAlignTask:
+    """ Contains lyric and lyric metadata passed through LyricManager as it fetches and aligns lyrics.
+
+    The high-level steps of a LyricAlignTask object is:
+        1. Instantiation from a path to an audio file.
+        2. Lyrics related to the song are fetched.
+        3. Lyrics are sanitized to prepare for alignment.
+        4. Alignment data is generated and finally written to disk.
+
+    Currently, LyricAlignTask can only house lyrics from a single source, but in the future it might be advantagous for
+    it to actually house lyrics from multiple sources.
+    """
+
     path_to_audio_file: Path
     # filename without extension
     filename: str                   = ""                            # Contained in path_to_audio_file, mostly for convenience / debugging
@@ -101,11 +108,12 @@ class LyricAlignTask:
         audio_file = eyed3.load(self.path_to_audio_file)
 
         if not audio_file:
-            logging.warning(f"Could not derive artist and song title from audio file '{self.filename}' tags.")
             return False
         
         if not audio_file.tag:
-            logging.warning(f"Could not derive artist and song title from audio file '{self.filename}' tags.")
+            return False
+        
+        if audio_file.tag.artist is None or audio_file.tag.title is None:
             return False
 
         self.artist = audio_file.tag.artist
@@ -127,10 +135,24 @@ class LyricAlignTask:
 
         # With more than one free-floating hyphen it's significantly harder to determine what's the full artist and song name
         if len(filename_parts) != 2:
-            logging.warning(f"Could not derive artist and song title from audio filename '{self.filename}'.")
             return False
         
         self.artist = filename_parts[0].strip()
         self.song_name = filename_parts[1].strip()
 
         return True
+
+
+    def get_user_friendly_result(self) -> str:
+        """ Returns an interpreted user-friendly string describing the result status of the task. """
+
+        if self.lyric_payload.validity != LyricValidity.Valid:
+            return self.lyric_payload.validity.text
+        
+        if not self.lyric_text_alignment_ready:
+            return "Valid Lyrics - No alignment done."
+        
+        if not self.lyrics_aligned:
+            return "Valid Lyrics - No alignment done, which is strange as the data was prepared to do it?"
+
+        return "Valid Lyrics - Alignment data generated"

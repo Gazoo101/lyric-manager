@@ -31,8 +31,7 @@ if TYPE_CHECKING:
 class LyricFetcherPyPiLyricsGenius(LyricFetcherBase):
     """ Retrieves Lyrics from genius.com via lyricgenius.
     
-    Uses https://pypi.org/project/lyricsgenius/
-    
+    PyPi Link: https://pypi.org/project/lyricsgenius/
     """
 
     def __init__(self, token, path_to_working_dir:Path = None):

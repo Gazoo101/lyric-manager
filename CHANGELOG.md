@@ -6,8 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+- GUI now supports specifying LyricAlignment location and working directory
 
 ### Changed
+- Notes are now added to processing table hinting at issues/progress with processed files.
+- Paths to individual audio files, as well as folders, is now supported.
+- Fixed bug where LyricManager would occasionally only recognize .mp3 files, and not other valid types of audio files.
+- Reduced superfluous error messages.
 
 ### Removed
 

@@ -16,7 +16,7 @@ class DeveloperOptions():
     """ Major options """
 
     # Version is represented as a string so we can graduate to x.y.z versioning in the near-future
-    version: str = "0.7"
+    version: str = "0.8"
 
     class ExecutionMode(Enum):
         # Standard internal release. Should override all debugging related options.
@@ -33,7 +33,7 @@ class DeveloperOptions():
     # ExecutionMode.ReleaseExternal: TBD
 
     execution_mode = ExecutionMode.ReleaseInternal
-    execution_mode = ExecutionMode.ReleaseExternal
+    #execution_mode = ExecutionMode.ReleaseExternal
 
 
     @classmethod

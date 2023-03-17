@@ -38,10 +38,10 @@ lyric_alignment:
 data:
   input:
 
-    # Folders with music for LyricManager to process
+    # Files and Folders with music for LyricManager to process
     paths_to_process:
-      - ~/path/to/your/music
-      - ~/another/path/to/music
+      - ~/path/a/folder/containing/music
+      - ~/another/path/to/a/specific/music.mp3
 
     # How LyricManager should determine an audio files artist and songname
     # artist_song_name_source: FileName - LyricManager expects songs to adhere to this naming convention "Artist - Song Name.mp3".

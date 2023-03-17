@@ -190,7 +190,7 @@ class LyricManagerBase:
             format=self.logging_format,
             datefmt=self.logging_format_time,
             handlers=[
-                logging.FileHandler(path_to_log),
+                logging.FileHandler(path_to_log, encoding="utf-8"),
                 logging.StreamHandler()     # Pass 'sys.stdout' if we'd prefer not to print to std.err
             ]
         )
@@ -263,7 +263,9 @@ class LyricManagerBase:
         tasks_with_lyrics: list[LyricAlignTask] = []
         tasks_with_lyrics_valid: list[LyricAlignTask] = []
 
+        task: LyricAlignTask
         for task in loop_wrapper(tasks, desc="Fetching, validating, and sanitizing lyrics"):
+            logging.info(f"Fetching, validating, and sanitizing lyrics for: {task.filename}")
             task_with_lyrics = self._fetch_and_sanitize_lyrics(lyric_fetchers, task)
             tasks_with_lyrics.append(task_with_lyrics)
 
@@ -282,6 +284,8 @@ class LyricManagerBase:
 
         self._create_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
 
+        logging.info("Fetching and aligning lyrics finished.")
+
         return tasks_with_lyrics
 
 
@@ -292,18 +296,24 @@ class LyricManagerBase:
         for path in all_paths:
             audio_files_in_path = []
 
-            if recursive:
-                for dirpath, dirnames, filenames in os.walk(path):
-                    audio_files_in_dir = [Path(dirpath) / filename for filename in filenames if self._valid_audio_extension(filename)]
-                    audio_files_in_path.extend(audio_files_in_dir)
-            else:
-                audio_files_in_path = [Path(entry.path) for entry in os.scandir(path) if entry.name.endswith("mp3")]
+            if path.is_file():
+                if self._valid_audio_extension(path.name):
+                    all_audio_files.append(path)
+                    
+            elif path.is_dir():
 
-            # os.walk() apparently returns files in an arbitrary order. For clarity/debugging, we prefer they are sorted
-            # by name 
-            audio_files_in_path = sorted(audio_files_in_path)
+                if recursive:
+                    for dirpath, dirnames, filenames in os.walk(path):
+                        audio_files_in_dir = [Path(dirpath) / filename for filename in filenames if self._valid_audio_extension(filename)]
+                        audio_files_in_path.extend(audio_files_in_dir)
+                else:
+                    audio_files_in_path = [Path(entry.path) for entry in os.scandir(path) if self._valid_audio_extension(entry.name)]
 
-            all_audio_files.extend(audio_files_in_path)
+                # os.walk() apparently returns files in an arbitrary order. For clarity/debugging, we prefer they are sorted
+                # by name 
+                audio_files_in_path = sorted(audio_files_in_path)
+
+                all_audio_files.extend(audio_files_in_path)
 
         return all_audio_files
     
@@ -361,7 +371,7 @@ class LyricManagerBase:
                 break
 
         if lyrics_payload.validity is not LyricValidity.Valid:
-            logging.warning(f"No valid lyric source found for: {lyric_align_task.path_to_audio_file}")
+            logging.info(f"No valid lyric source found for: {lyric_align_task.path_to_audio_file}")
             # Add additional info here for what *was* found...
             return lyric_align_task
         
@@ -443,28 +453,25 @@ class LyricManagerBase:
         lyric_align_task: LyricAlignTask,
         file_output_path: Path,
         export_readable_json: bool):
-        """ TODO """
+        """ Writes LyricManagers final .aligned_lyrics file (to disk) for a given task. """
         
         path_to_json_lyrics_file = lyric_align_task.path_to_audio_file.with_suffix(".aligned_lyrics")
 
         if file_output_path:
             path_to_json_lyrics_file = file_output_path / path_to_json_lyrics_file.name
 
-        # # lyrics = self.lyric_fetcher.fetch_lyrics("The Go-Go's", "Vacation")
-
-        # json_out_fds["debug_meta_lyrics"] = lyrics
+        formatting_indent = None
+        if export_readable_json:
+            formatting_indent=4
 
         with open(path_to_json_lyrics_file, 'w') as file:
-            if export_readable_json:
-                json.dump(lyric_align_task.lyrics_aligned, file, indent=4)
-            else:
-                json.dump(lyric_align_task.lyrics_aligned, file)
+            json.dump(lyric_align_task.lyrics_aligned, file, indent=formatting_indent)
 
         logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 
 
     def _string_list_to_string(self, string_list):
-        ''' Converts a list of strings into a single string without double spaces. '''
+        """ Converts a list of strings into a single string without double spaces. """
         string = ' '.join(string_list)
         return ' '.join(string.split())
     
@@ -532,6 +539,4 @@ class LyricManagerBase:
         report_filename = now.strftime("%Y-%m-%d_%H.%M.%S Alignment Report.txt")
         report_file = self.path_to_reports / report_filename
 
-        report_file.write_text(text_to_write)
-            
-        end = 2
+        report_file.write_text(text_to_write, encoding="utf-8")
