@@ -280,7 +280,7 @@ class LyricManagerBase:
 
             lyric_align_task = self._align_lyrics(task, lyric_aligner, self.path_to_working_directory)
 
-            self._write_aligned_lyrics_to_disk(lyric_align_task, self.path_to_working_directory, settings.data.output.aligned_lyrics_output_mode)
+            self._write_aligned_lyrics_to_disk(lyric_align_task, self.path_to_working_directory, settings.data.output.aligned_lyrics_formatting)
 
         self._create_aligned_lyrics_report(tasks_with_lyrics, tasks_with_lyrics_valid)
 

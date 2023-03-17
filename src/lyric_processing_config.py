@@ -19,7 +19,7 @@ class FileCopyMode(Enum):
     NextToAudioFile = auto()
     SeparateDirectory = auto()
 
-class AlignedLyricsOutputMode(Enum):
+class AlignedLyricsFormatting(Enum):
     Readable = auto()
     Compact = auto()
 
@@ -64,7 +64,7 @@ class SettingsDataOutput():
 
     path_to_output_aligned_lyrics: Optional[Path] = field(default_factory=Path)
 
-    aligned_lyrics_output_mode: AlignedLyricsOutputMode = AlignedLyricsOutputMode.Readable
+    aligned_lyrics_formatting: AlignedLyricsFormatting = AlignedLyricsFormatting.Readable
 
     overwrite_existing_generated_files: bool = True
 

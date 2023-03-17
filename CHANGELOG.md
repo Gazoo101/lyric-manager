@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - GUI now supports specifying LyricAlignment location and working directory
+- Widgets for remaining configuration added:
+    - Determining audio artist and song title
+    - Aligned Lyrics Formatting
+    - Aligned Lyrics File Copy Mode
 
 ### Changed
 - Notes are now added to processing table hinting at issues/progress with processed files.

@@ -33,9 +33,14 @@ class ComboBoxEnum():
         self.widget_combo_box.setCurrentIndex(index)
 
 
-    def save_setting(self):
+    def save_setting(self) -> Enum:
         """ Saves the currently selected choice as an enum to the QSettings object. """
+        self.q_settings.setValue(self.settings_name, self.get_value_as_enum())
+
+
+    def get_value_as_enum(self):
+        """ Returns the currently selected option in the form of an Enum. """
         text = self.widget_combo_box.currentText()
         current_enum_value = self.enum_type[text]
 
-        self.q_settings.setValue(self.settings_name, current_enum_value)
+        return current_enum_value

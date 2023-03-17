@@ -74,8 +74,8 @@ data:
     # LyricManager supports two ways to output aligned lyrics:
     #   - Compact:  Few spaces, few line breaks, no tabs. Intended for low disk space consumtion.
     #   - Readable: Indentation, lots of spaces and line breaks. Intended for readability and debugging.
-    #aligned_lyrics_output_mode: Compact
-    aligned_lyrics_output_mode: Readable
+    #aligned_lyrics_formatting: Compact
+    aligned_lyrics_formatting: Readable
 
     overwrite_existing_generated_files: True
     

@@ -32,7 +32,7 @@ from src.gui import ComboBoxEnum
 from src.lyric_manager_base import LyricManagerBase
 from src.lyric_processing_config import Settings
 from src.lyric_processing_config import FileCopyMode
-from src.lyric_processing_config import AlignedLyricsOutputMode
+from src.lyric_processing_config import AlignedLyricsFormatting
 from src.lyric.dataclasses_and_types import LyricFetcherType
 from src.lyric.dataclasses_and_types import LyricAlignerType
 from src.lyric.dataclasses_and_types import LyricAlignTask
@@ -97,6 +97,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
     gui_path_to_NUSLyrixAutoAlign = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign", "text")
     gui_path_to_NUSLyrixAutoAlign_working_directory = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign", "text")
+
+    gui_path_to_aligned_lyrics_copy = bind_class_property_to_qt_widget_property("lineEdit_path_to_aligned_lyrics_copy", "text")
 
     
     def _get_checkbox_settings_value_or_default(self, q_settings_name: str, widget_q_checkbox_name):
@@ -164,12 +166,15 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         if DeveloperOptions.automatically_start_processing():
             self.start_processing()
 
+
     def _create_combo_box_enum(self, widget_name: str, enum_value: Enum, settings_name: str) -> ComboBoxEnum:
+        """ Creates a ComboBoxEnum which is a wrapper class tying a QComboBox to a custom Enum. """
         q_widget: QComboBox = self.widget_main_window.findChild(QComboBox, widget_name)
         if q_widget:
             return ComboBoxEnum(q_widget, type(enum_value), enum_value, settings_name, self.q_settings)
         
         return None
+
 
     def _setup_ui(self, path_to_ui_file : str):
         """ Loads a Qt .ui interface via the path provided, and sets up static/dynamic widget behavior.
@@ -225,9 +230,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
             self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign")
         widget_button_set_path_NUSAutoLyrixAlign_working_directory: QPushButton = \
             self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign_working_directory")
-
-        ### Dynamic GUI Behavior
-        self.widget_local_data_sources = self._setup_widget_local_data_sources()
+        widget_button_set_path_to_aligned_lyrics_copy: QPushButton = \
+            self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_aligned_lyrics_copy")
 
         # We obtain the default values for our enum-based ComboBoxes form a default Settings object
         settings = Settings()
@@ -237,7 +241,15 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self.widget_file_copy_mode = \
             self._create_combo_box_enum("comboBox_file_copy_mode", settings.data.output.aligned_lyrics_file_copy_mode, "Processing/file_copy_mode")
         self.widget_aligned_lyrics_output_mode = \
-            self._create_combo_box_enum("comboBox_aligned_lyrics_output_mode", settings.data.output.aligned_lyrics_output_mode, "Processing/aligned_lyrics_output_mode")
+            self._create_combo_box_enum("comboBox_aligned_lyrics_output_mode", settings.data.output.aligned_lyrics_formatting, "Processing/aligned_lyrics_output_mode")
+
+
+
+        #################################################
+        ### Dynamic GUI Behavior
+        # - Replacing widgets defined via QtDesigner
+        # - Connecting Signals / Slots
+        self.widget_local_data_sources = self._setup_widget_local_data_sources()
 
         # Set 'Delete' key to remove executable entries if the widget is active
         QtGui.QShortcut(QtGui.QKeySequence("Delete"), self.widget_local_data_sources, self.widget_local_data_sources.remove_selected_items, context=QtCore.Qt.WidgetShortcut)
@@ -253,12 +265,21 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
             )
             qline_edit_widget.setText(dialog_path)
 
+        
+        def toggle_path_to_aligned_lyrics_copy_widgets(value):
+            lineEdit_path_to_aligned_lyrics_copy: QLineEdit = self.widget_main_window.findChild(QLineEdit, "lineEdit_path_to_aligned_lyrics_copy")
+            copy_mode = self.widget_file_copy_mode.get_value_as_enum()
+            if copy_mode == FileCopyMode.SeparateDirectory:
+                lineEdit_path_to_aligned_lyrics_copy.setDisabled(False)
+                widget_button_set_path_to_aligned_lyrics_copy.setDisabled(False)
+            else:
+                lineEdit_path_to_aligned_lyrics_copy.setDisabled(True)
+                widget_button_set_path_to_aligned_lyrics_copy.setDisabled(True)
 
-        widget_sam: QLineEdit = self.widget_main_window.findChild(QLineEdit, "lineEdit_path_to_NUSAutoLyrixAlign")
-        widget_sam.setText("and now...!")
 
-        #lineEdit_path_to_NUSAutoLyrixAlign | pushButton_set_path_to_NUSAutoLyrixAlign
-        #lineEdit_path_to_NUSAutoLyrixAlign_working_directory | pushButton_set_path_to_NUSAutoLyrixAlign_working_directory
+        self.widget_file_copy_mode.widget_combo_box.currentIndexChanged.connect(toggle_path_to_aligned_lyrics_copy_widgets)
+        toggle_path_to_aligned_lyrics_copy_widgets(0)
+
 
         ### Slots and signals
         widget_start_processing.clicked.connect(self.start_processing)
@@ -271,6 +292,10 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         function_set_path_to_NUSAutoLyrixAlign_working_directory = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_NUSAutoLyrixAlign_working_directory")
         widget_button_set_path_NUSAutoLyrixAlign_working_directory.clicked.connect(function_set_path_to_NUSAutoLyrixAlign_working_directory)
+
+        function_set_path_to_aligned_lyrics_copy = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_aligned_lyrics_copy")
+        widget_button_set_path_to_aligned_lyrics_copy.clicked.connect(function_set_path_to_aligned_lyrics_copy)
+
 
         # Iterate through all a menu's actions
         # for action in menu_bar.actions():
@@ -321,6 +346,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self._set_selected_lyric_fetcher_types(fetcher_types)
         self._set_selected_lyric_aligner_type(aligner_type)
 
+        self.gui_path_to_aligned_lyrics_copy = self.q_settings.value("Processing/PathToAlignedLyricsCopy", None)
+
 
     def _save_ui_settings(self):
         """ Updates self.q_settings with all GUI related settings so they'll be properly saved when the program exits. """
@@ -356,6 +383,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self._set_checkbox_settings_value("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
         self._set_checkbox_settings_value("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
 
+        self.q_settings.setValue("Processing/PathToAlignedLyricsCopy", self.gui_path_to_aligned_lyrics_copy)
+
         self.widget_artist_song_name_source.save_setting()
         self.widget_file_copy_mode.save_setting()
         self.widget_aligned_lyrics_output_mode.save_setting()
@@ -385,17 +414,15 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         settings.data.input.paths_to_process = paths_to_process
         settings.data.input.recursively_process_paths = self.recursively_parse_folders_to_process
         settings.data.input.folders_to_exclude = []
+        settings.data.input.artist_song_name_source = self.widget_artist_song_name_source.get_value_as_enum()
 
         settings.data.output.overwrite_existing_generated_files = self.overwrite_existing_generated_files
         settings.data.output.path_to_working_directory = self.path_to_working_directory
         settings.data.output.path_to_reports = self.path_to_reports
+        settings.data.output.aligned_lyrics_file_copy_mode = self.widget_file_copy_mode.get_value_as_enum()
+        settings.data.output.aligned_lyrics_formatting = self.widget_aligned_lyrics_output_mode.get_value_as_enum()
 
-        #settings.data.output.aligned_lyrics_file_copy_mode = FileCopyMode.Disabled
-
-        # These still need to be set
-        # settings.data.output.aligned_lyrics_file_copy_mode = None
-        # settings.data.output.aligned_lyrics_output_mode = None
-        # settings.data.output.path_to_output_aligned_lyrics = None
+        settings.data.output.path_to_output_aligned_lyrics = self.gui_path_to_aligned_lyrics_copy
 
         # TODO: Re-visit if passing in this worker in the single-threaded context is the best single threaded approach.
         worker = GuiWorker(None)
