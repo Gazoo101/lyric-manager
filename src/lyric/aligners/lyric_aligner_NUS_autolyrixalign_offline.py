@@ -11,8 +11,6 @@ from datetime import datetime
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
 
-#... Fixems
-#import .
 from ...components import FileOperations
 
 
@@ -144,15 +142,6 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
             logging.info("Missing vital components to execute aligner - skipping alignment.")
             return []
 
-        # if not self.path_aligner:
-        #     logging.info('No path provided to NUSAutoLyrixAlign, skipping alignment.')
-
-        #     if not use_preexisting:
-        #         logging.warning("Without an aligner or access to a pre-existing alignment file, there's little reason to continue")
-        #         raise RuntimeError("No song aligner provided and pre-existing alignment files disallowed.")
-
-        #     return []
-
 
         datetime_before_alignment = datetime.now()
         path_temp_file_lyric_aligned = self._align_lyrics_internal(path_to_audio_file, path_to_lyric_input)
@@ -168,14 +157,9 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         if datetime_before_alignment > datetime_lyric_aligned:
             logging.warning('Lyric aligned existed before completion O_o')
             return []
-
-        # CONTINUE
-        # CONTINUE HERE - we need to copy the aligned lyrics file to the working directory.
-        # it's currently being copied next to the audio file, it should go to the working dir
-
-        # While we're building this tool, we'll maintain copies of the aligned lyrics in order
-        # to repeat the 'aligned lyrics' => 'json lyrics' code
-        path_to_aligned_lyric_file = self.copy_aligned_lyrics_output(path_to_audio_file, path_temp_file_lyric_aligned)
+        
+        # 'temp_dir/lyric_aligned.txt' --> 'working_directory/artist - song title.lyric_aligned'
+        path_to_aligned_lyric_file = self.copy_aligned_lyrics_to_working_directory(path_temp_file_lyric_aligned, path_to_audio_file)
         
         word_timings = self._convert_to_wordandtiming(path_to_aligned_lyric_file)
 
