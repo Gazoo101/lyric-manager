@@ -128,7 +128,7 @@ class LyricManagerBase:
         factory = ObjectFactory()
         factory.register_builder(LyricAlignerType.Disabled, LyricAlignerDisabled)
         factory.register_builder(LyricAlignerType.NUSAutoLyrixAlignOffline, LyricAlignerNUSAutoLyrixAlignOffline)
-        factory.register_builder(LyricAlignerType.NUSAutoLyrixAlignOnline, LyricAlignerNUSAutoLyrixAlignOnline)
+        #factory.register_builder(LyricAlignerType.NUSAutoLyrixAlignOnline, LyricAlignerNUSAutoLyrixAlignOnline)
         return factory
     
 

@@ -16,7 +16,7 @@ class DeveloperOptions():
     """ Major options """
 
     # Version is represented as a string so we can graduate to x.y.z versioning in the near-future
-    version: str = "1.0"
+    version: str = "1.0.1"
 
     class ExecutionMode(Enum):
         # Standard internal release. Should override all debugging related options.

@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.0.1]
+### Changed
+- Disabled aligner fixed.
+
+### Removed
+- NUSAutoLyrixAlignOnline from the GUI as an option, as it's currently not implemented.
+
 ## [1.0]
 ### Added
 - A separate GUI Settings Window which now supports most of LyricManager's settings

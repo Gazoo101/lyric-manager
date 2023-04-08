@@ -16,8 +16,8 @@ class LyricAlignerNUSAutoLyrixAlignOnline(LyricAlignerInterface):
     low priority. You're encouraged to use LyricAlignerNUSAutoLyrixAlignOffline instead.
     """
 
-    def __init__(self, path_temp_dir):
-        super().__init__(".nusalaonline", path_temp_dir)
+    def __init__(self, path_to_output_dir: Path = None):
+        super().__init__(".nusalaonline", Path(), path_to_output_dir)
 
     def _convert_to_wordandtiming(self, input):
         return []
