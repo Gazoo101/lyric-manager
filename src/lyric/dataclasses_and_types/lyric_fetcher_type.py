@@ -6,7 +6,7 @@ from enum import Enum, auto
 # 1st Party
 
 class LyricFetcherType(Enum):
-    Disabled = auto()
+    #Disabled = auto()
     LocalFile = auto()
     Pypi_LyricsGenius = auto()
     Pypi_LyricsExtractor = auto()

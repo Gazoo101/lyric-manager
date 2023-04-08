@@ -12,12 +12,13 @@ from functools import partial
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QMainWindow, QListWidget, QPlainTextEdit, QListWidgetItem, QAbstractItemView, QSplitter
 from PySide6.QtWidgets import QRadioButton, QTableWidget, QTableWidgetItem, QProgressBar, QPushButton, QCheckBox 
-from PySide6.QtWidgets import QMessageBox, QMenuBar, QComboBox, QFileDialog, QLineEdit
+from PySide6.QtWidgets import QMessageBox, QMenuBar, QComboBox, QFileDialog, QLineEdit, QWidget, QToolButton, QApplication
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtCore import QFile, QDir, qDebug, QSettings
 from PySide6.QtGui import QAction, QIcon
 
 # 1st Party
+import resources.resources
 from src.developer_options import DeveloperOptions
 
 from src.components.audio_artist_and_song_name_source import AudioArtistAndSongNameSource
@@ -28,45 +29,18 @@ from src.gui import LoggingHandlerSignal
 from src.gui import ProgressItemGeneratorGUI
 from src.gui import QListWidgetDragAndDrop
 from src.gui import ComboBoxEnum
+from src.gui import WidgetQCheckBoxWithEnum
+from src.gui import WidgetQRadioButtonWithEnum
+
+from src.gui import bind_property_window_main
+from src.gui import bind_property_window_settings
 
 from src.lyric_manager_base import LyricManagerBase
 from src.lyric_processing_config import Settings
 from src.lyric_processing_config import FileCopyMode
-from src.lyric_processing_config import AlignedLyricsFormatting
 from src.lyric.dataclasses_and_types import LyricFetcherType
 from src.lyric.dataclasses_and_types import LyricAlignerType
 from src.lyric.dataclasses_and_types import LyricAlignTask
-
-def bind_class_property_to_qt_widget_property(objectName, propertyName):
-    """ Binds a Python class property to a given Qt widget property.
-
-    Two-way binding is a commonly used pattern. PySide6 provides support for this, but is rather boiler-plate heavy:
-    https://doc.qt.io/qtforpython/PySide6/QtCore/Property.html
-
-    Unfortunately, because property() uses Descriptors (https://docs.python.org/3/howto/descriptor.html) it acts on the
-    class, *not* the instance. Hence, its use *must* occur with a class property, *not* instance property. E.g.
-
-    class MyApplication(...):
-
-        # Ok
-        path_to_asset = bind_class_property_to_qt_widget_property("lineEditPathToAsset", "text")
-
-        def __init__(self):
-            # Not Ok
-            self.path_to_asset = bind_class_property_to_qt_widget_property("lineEditPathToAsset", "text")
-
-    Inspired by:
-    https://wiki.python.org/moin/PyQt/Binding%20widget%20properties%20to%20Python%20variables
-    https://stackoverflow.com/questions/69529864/binding-widget-properties-to-python-variables
-    """
-
-    def getter(self):
-        return self.widget_main_window.findChild(QtCore.QObject, objectName).property(propertyName)
-        
-    def setter(self, value):
-        self.widget_main_window.findChild(QtCore.QObject, objectName).setProperty(propertyName, value)
-    
-    return property(getter, setter)
 
 
 class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
@@ -86,32 +60,40 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
     # TODO: Consider whether we should just directly access the widgets in the code. This is a bit obscure...
     recursively_parse_folders_to_process = \
-        bind_class_property_to_qt_widget_property("checkBox_recursively_parse_folders_to_process", "checked")
+        bind_property_window_main("checkBox_recursively_parse_folders_to_process", "checked")
     
     overwrite_existing_generated_files = \
-        bind_class_property_to_qt_widget_property("checkBox_overwrite_existing_generated_files", "checked")
+        bind_property_window_settings("checkBox_overwrite_existing_generated_files", "checked")
     
-    gui_genius_token = bind_class_property_to_qt_widget_property("lineEdit_genius_token", "text")
-    gui_google_custom_search_api_key = bind_class_property_to_qt_widget_property("lineEdit_google_custom_search_api_key", "text")
-    gui_google_custom_search_engine_id = bind_class_property_to_qt_widget_property("lineEdit_google_custom_search_engine_id", "text")
+    gui_genius_token = bind_property_window_settings("lineEdit_genius_token", "text")
+    gui_google_custom_search_api_key = bind_property_window_settings("lineEdit_google_custom_search_api_key", "text")
+    gui_google_custom_search_engine_id = bind_property_window_settings("lineEdit_google_custom_search_engine_id", "text")
 
-    gui_path_to_NUSLyrixAutoAlign = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign", "text")
-    gui_path_to_NUSLyrixAutoAlign_working_directory = bind_class_property_to_qt_widget_property("lineEdit_path_to_NUSAutoLyrixAlign_working_directory", "text")
+    gui_path_to_NUSLyrixAutoAlign = bind_property_window_settings("lineEdit_path_to_NUSAutoLyrixAlign", "text")
+    gui_path_to_NUSLyrixAutoAlign_working_directory = bind_property_window_settings("lineEdit_path_to_NUSAutoLyrixAlign_working_directory", "text")
 
-    gui_path_to_aligned_lyrics_copy = bind_class_property_to_qt_widget_property("lineEdit_path_to_aligned_lyrics_copy", "text")
+    gui_path_to_aligned_lyrics_copy = bind_property_window_settings("lineEdit_path_to_aligned_lyrics_copy", "text")
 
     
-    def _get_checkbox_settings_value_or_default(self, q_settings_name: str, widget_q_checkbox_name):
-        """ Helps set default via checkbox default"""
+    def _load_and_set_checkbox_from_q_settings_or_default(self, q_settings_name: str, widget_q_checkbox_name):
+        """ Load and set state of a named checkbox in either the main or settings window from QSettings. """
+        widget_q_checkbox: QCheckBox
+        widget_q_checkbox = self.widget_window_main.findChild(QCheckBox, widget_q_checkbox_name)
+        if not widget_q_checkbox:
+            widget_q_checkbox = self.widget_window_settings.findChild(QCheckBox, widget_q_checkbox_name)
 
-        # This allows for a default setting to pervade
-        widget_q_checkbox: QCheckBox = self.widget_main_window.findChild(QCheckBox, widget_q_checkbox_name)
+        # Using .checkState() here allows LyricManager to utilize the default state defined via QtDesigner
         check_state = self.q_settings.value(q_settings_name, widget_q_checkbox.checkState())
         widget_q_checkbox.setCheckState(check_state)
 
 
-    def _set_checkbox_settings_value(self, q_settings_name: str, widget_q_checkbox_name):
-        widget_q_checkbox: QCheckBox = self.widget_main_window.findChild(QCheckBox, widget_q_checkbox_name)
+    def _save_checkbox_to_q_settings(self, q_settings_name: str, widget_q_checkbox_name):
+        """ Saves the state of a named checkbox in either the main or settings window to QSettings. """
+        widget_q_checkbox: QCheckBox
+        widget_q_checkbox = self.widget_window_main.findChild(QCheckBox, widget_q_checkbox_name)
+        if not widget_q_checkbox:
+            widget_q_checkbox = self.widget_window_settings.findChild(QCheckBox, widget_q_checkbox_name)
+        
         self.q_settings.setValue(q_settings_name, widget_q_checkbox.checkState())
 
 
@@ -126,7 +108,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
         LyricManagerBase.__init__(self, work_directory, reports_directory)
         QtCore.QObject.__init__(self)
-
+        
 
         # A bool primarily used to avoid accessing deleted objects during shut-down in self.eventFilter()
         self.is_running = True
@@ -141,14 +123,16 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # For more complicated things, this might not work as easily...
         #self.test_config = Config() # no - undo...
 
-        self._setup_ui("./resources/lyric_manager_v4.ui")
+        #self._setup_ui("./resources/lyric_manager_v4.ui")
+        self._setup_ui_v2("./resources/lyric_manager_window_main.ui", "./resources/lyric_manager_window_settings.ui")
         self._load_ui_settings()
         
-        self.widget_main_window.setWindowTitle(f"LyricManager v. {DeveloperOptions.version}")
+        self.widget_window_main.setWindowTitle(f"LyricManager v. {DeveloperOptions.version}")
 
         # Causes Qt to trigger this classes eventFilter() to handle incoming events. It's primarily used to respond
         # to key presses, such as Esc to quit.
-        self.widget_main_window.installEventFilter(self)
+        self.widget_window_main.installEventFilter(self)
+        self.widget_window_settings.installEventFilter(self)
 
         # To funnel logging calls (e.g. info() warn()) into the Gui, we add a handler which uses Qt's Signal/Slot system
         # to pass these logging messages to a QPlainTextEdit widget.
@@ -169,14 +153,14 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
     def _create_combo_box_enum(self, widget_name: str, enum_value: Enum, settings_name: str) -> ComboBoxEnum:
         """ Creates a ComboBoxEnum which is a wrapper class tying a QComboBox to a custom Enum. """
-        q_widget: QComboBox = self.widget_main_window.findChild(QComboBox, widget_name)
+        q_widget: QComboBox = self.widget_window_main.findChild(QComboBox, widget_name)
         if q_widget:
             return ComboBoxEnum(q_widget, type(enum_value), enum_value, settings_name, self.q_settings)
         
         return None
 
 
-    def _setup_ui(self, path_to_ui_file : str):
+    def _setup_ui_v2(self, path_to_ui_window_main: str, path_to_ui_window_settings: str):
         """ Loads a Qt .ui interface via the path provided, and sets up static/dynamic widget behavior.
         
         The order of work is grouped into 3 categories:
@@ -187,105 +171,97 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         Args:
             path_to_ui_file: Path to the .ui file to be loaded.
         """
-        ### Static GUI Behavior
-        #qDebug("helpsors")
+        self.widget_window_main : QMainWindow = QUiLoader().load(path_to_ui_window_main)
+        self.widget_window_settings : QWidget = QUiLoader().load(path_to_ui_window_settings)
 
-        self.widget_main_window : QMainWindow = QUiLoader().load(path_to_ui_file)
+        # We instantiate this Settings object purely to access the default values it contains.
+        settings = Settings()
 
-        # Set icon
-        # https://stackoverflow.com/questions/17034330/how-to-include-resource-file-in-cx-freeze-binary
-        icon = QIcon("./resources/lyric_manager.ico")
-        self.widget_main_window.setWindowIcon(icon)
+        ###
+        # Static GUI - Main Window
+        placeholder_lyric_fetcher: QCheckBox = self.widget_window_main.findChild(QCheckBox, "checkBox_lyric_fetcher_placeholder")
+        placeholder_lyric_aligner: QRadioButton = self.widget_window_main.findChild(QRadioButton, "radioButton_lyric_aligner_placeholder")
 
-        self.widget_songs_processed: QTableWidget = self.widget_main_window.findChild(QTableWidget, "tableWidget_songs_processed")
+        self.lyric_fetchers = WidgetQCheckBoxWithEnum(placeholder_lyric_fetcher, LyricFetcherType, [LyricFetcherType.LocalFile], "Processing/FetcherTypes", self.q_settings )
+        self.lyric_aligners = WidgetQRadioButtonWithEnum(placeholder_lyric_aligner, LyricAlignerType.NUSAutoLyrixAlignOffline, "Processing/AlignerType", self.q_settings )
 
-        self.widget_log: QPlainTextEdit = self.widget_main_window.findChild(QPlainTextEdit, "plainTextEdit_log")
+        self.widget_splitter_horizontal: QSplitter = self.widget_window_main.findChild(QSplitter, "splitter_horizontal")
+        self.widget_splitter_vertical: QSplitter = self.widget_window_main.findChild(QSplitter, "splitter_vertical")
 
-        self.widget_lyric_sources: QListWidget = self.widget_main_window.findChild(QListWidget, "listWidget_lyricSources")
-        self.widget_lyric_aligners: QListWidget = self.widget_main_window.findChild(QListWidget, "listWidget_lyricAligners")
+        widget_button_settings: QToolButton = self.widget_window_main.findChild(QToolButton, "toolButton_settings")
+        widget_button_start_processing: QPushButton = self.widget_window_main.findChild(QPushButton, "pushButton_start_processing")
 
-        self.widget_lyric_aligners.setSelectionBehavior( QAbstractItemView.SelectItems )
-        self.widget_lyric_aligners.setSelectionMode( QAbstractItemView.SingleSelection )
-
-        for key, fetcher in self.factory_lyric_fetcher.builders.items():
-            self._add_fetcher(key.name)
-
-        for key, aligner in self.factory_lyric_aligner.builders.items():
-            self._add_aligner(key.name)
-
-        self.widget_splitter_horizontal: QSplitter = self.widget_main_window.findChild(QSplitter, "splitter_horizontal")
-        self.widget_splitter_vertical: QSplitter = self.widget_main_window.findChild(QSplitter, "splitter_vertical")
-
-        # Oddly, QSplitter's are basically invisible in their default state. We modify it's CSS a tad to make them
-        # visible.
-        self.widget_main_window.setStyleSheet("QSplitter::handle { border: 1px outset darkgrey; } ")
-
-        self.widget_progress_bar_overall: QProgressBar = self.widget_main_window.findChild(QProgressBar, "progressBar_overall")
+        self.widget_progress_bar_overall: QProgressBar = self.widget_window_main.findChild(QProgressBar, "progressBar_overall")
         self.widget_progress_bar_overall.setValue(0)
         self.widget_progress_bar_overall.setFormat("- Ready -")
 
-        widget_start_processing = self.widget_main_window.findChild(QPushButton, "pushButton_start_processing")
+        self.widget_songs_processed: QTableWidget = self.widget_window_main.findChild(QTableWidget, "tableWidget_songs_processed")
+        self.widget_log: QPlainTextEdit = self.widget_window_main.findChild(QPlainTextEdit, "plainTextEdit_log")
 
-        widget_button_set_path_NUSAutoLyrixAlign: QPushButton = \
-            self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign")
-        widget_button_set_path_NUSAutoLyrixAlign_working_directory: QPushButton = \
-            self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign_working_directory")
-        widget_button_set_path_to_aligned_lyrics_copy: QPushButton = \
-            self.widget_main_window.findChild(QPushButton, "pushButton_set_path_to_aligned_lyrics_copy")
+        ###
+        # Static GUI - Settings Window
+        placeholder_artist_song_title_source: QRadioButton = self.widget_window_settings.findChild(QRadioButton, "radioButton_artist_song_title_source_placeholder")
+        placeholder_aligned_lyrics_formatting: QRadioButton = self.widget_window_settings.findChild(QRadioButton, "radioButton_aligned_lyrics_formatting_placeholder")
+        placeholder_aligned_lyrics_copy_mode: QRadioButton = self.widget_window_settings.findChild(QRadioButton, "radioButton_aligned_lyrics_copy_mode_placeholder")
 
-        # We obtain the default values for our enum-based ComboBoxes form a default Settings object
-        settings = Settings()
+        widget_button_set_path_NUSAutoLyrixAlign: QToolButton = \
+            self.widget_window_settings.findChild(QToolButton, "toolButton_set_path_to_NUSAutoLyrixAlign")
+        widget_button_set_path_NUSAutoLyrixAlign_working_directory: QToolButton = \
+            self.widget_window_settings.findChild(QToolButton, "toolButton_set_path_to_NUSAutoLyrixAlign_working_directory")
+        widget_button_set_path_to_aligned_lyrics_copy: QToolButton = \
+            self.widget_window_settings.findChild(QToolButton, "toolButton_set_path_to_aligned_lyrics_copy")
 
-        self.widget_artist_song_name_source = \
-            self._create_combo_box_enum("comboBox_artist_song_name_source", settings.data.input.artist_song_name_source, "Processing/artist_song_name_source")
-        self.widget_file_copy_mode = \
-            self._create_combo_box_enum("comboBox_file_copy_mode", settings.data.output.aligned_lyrics_file_copy_mode, "Processing/file_copy_mode")
-        self.widget_aligned_lyrics_output_mode = \
-            self._create_combo_box_enum("comboBox_aligned_lyrics_output_mode", settings.data.output.aligned_lyrics_formatting, "Processing/aligned_lyrics_output_mode")
+        ################################################################################################################
 
-
-
-        #################################################
-        ### Dynamic GUI Behavior
-        # - Replacing widgets defined via QtDesigner
-        # - Connecting Signals / Slots
+        ###
+        # Dynamic GUI - Main Window
         self.widget_local_data_sources = self._setup_widget_local_data_sources()
+
+
+        ###
+        # Dynamic GUI - Settings Window
+        self.widget_artist_song_title_source = WidgetQRadioButtonWithEnum(placeholder_artist_song_title_source, settings.data.input.artist_song_name_source, "Processing/artist_song_name_source", self.q_settings )
+        self.widget_aligned_lyrics_formatting = WidgetQRadioButtonWithEnum(placeholder_aligned_lyrics_formatting, settings.data.output.aligned_lyrics_formatting, "Processing/aligned_lyrics_output_mode", self.q_settings )
+        self.widget_file_copy_mode = WidgetQRadioButtonWithEnum(placeholder_aligned_lyrics_copy_mode, settings.data.output.aligned_lyrics_file_copy_mode, "Processing/file_copy_mode", self.q_settings )
+
+
+        ################################################################################################################
+
+        ###
+        # Slots and Signals - Main Window
+        menu_bar: QMenuBar = self.widget_window_main.menuBar()
+        menu_bar.triggered.connect(self.sl_menu_bar_trigger)
+
+        widget_button_start_processing.clicked.connect(self.start_processing)
+
+        def show_settings_window():
+            """ Shows the setting window if hidden, raises it to the front if already open. """
+            if self.widget_window_settings.isHidden():
+                self.widget_window_settings.show()
+            else:
+                self.widget_window_settings.activateWindow()
+
+
+        widget_button_settings.clicked.connect(show_settings_window)
 
         # Set 'Delete' key to remove executable entries if the widget is active
         QtGui.QShortcut(QtGui.QKeySequence("Delete"), self.widget_local_data_sources, self.widget_local_data_sources.remove_selected_items, context=QtCore.Qt.WidgetShortcut)
 
+        
+
+
+        ###
+        # Slots and Signals - Settings Window
         def open_directory_select_dialog_and_set_to_line_edit(qlineedit_widget_name: str):
             """ Spawns a QFileDialog set to select a directory and applies the path to the QLineEdit with the given name. """
-            qline_edit_widget: QLineEdit = self.widget_main_window.findChild(QLineEdit, qlineedit_widget_name)
+            qline_edit_widget: QLineEdit = self.widget_window_settings.findChild(QLineEdit, qlineedit_widget_name)
             
             dialog_path = QFileDialog.getExistingDirectory(
-                self.widget_main_window, "Open Directory",
+                self.widget_window_settings, "Open Directory",
                 str(self.path_to_application),
                 QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
             )
             qline_edit_widget.setText(dialog_path)
-
-        
-        def toggle_path_to_aligned_lyrics_copy_widgets(value):
-            lineEdit_path_to_aligned_lyrics_copy: QLineEdit = self.widget_main_window.findChild(QLineEdit, "lineEdit_path_to_aligned_lyrics_copy")
-            copy_mode = self.widget_file_copy_mode.get_value_as_enum()
-            if copy_mode == FileCopyMode.SeparateDirectory:
-                lineEdit_path_to_aligned_lyrics_copy.setDisabled(False)
-                widget_button_set_path_to_aligned_lyrics_copy.setDisabled(False)
-            else:
-                lineEdit_path_to_aligned_lyrics_copy.setDisabled(True)
-                widget_button_set_path_to_aligned_lyrics_copy.setDisabled(True)
-
-
-        self.widget_file_copy_mode.widget_combo_box.currentIndexChanged.connect(toggle_path_to_aligned_lyrics_copy_widgets)
-        toggle_path_to_aligned_lyrics_copy_widgets(0)
-
-
-        ### Slots and signals
-        widget_start_processing.clicked.connect(self.start_processing)
-
-        menu_bar: QMenuBar = self.widget_main_window.menuBar()
-        menu_bar.triggered.connect(self.sl_menu_bar_trigger)
 
         function_set_path_to_NUSAutoLyrixAlign = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_NUSAutoLyrixAlign")
         widget_button_set_path_NUSAutoLyrixAlign.clicked.connect(function_set_path_to_NUSAutoLyrixAlign)
@@ -297,15 +273,164 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         widget_button_set_path_to_aligned_lyrics_copy.clicked.connect(function_set_path_to_aligned_lyrics_copy)
 
 
+        def toggle_path_to_aligned_lyrics_copy_widgets():
+            lineEdit_path_to_aligned_lyrics_copy: QLineEdit = self.widget_window_settings.findChild(QLineEdit, "lineEdit_path_to_aligned_lyrics_copy")
+            copy_mode = self.widget_file_copy_mode.get_selected()
+            if copy_mode == FileCopyMode.SeparateDirectory:
+                lineEdit_path_to_aligned_lyrics_copy.setDisabled(False)
+                widget_button_set_path_to_aligned_lyrics_copy.setDisabled(False)
+            else:
+                lineEdit_path_to_aligned_lyrics_copy.setDisabled(True)
+                widget_button_set_path_to_aligned_lyrics_copy.setDisabled(True)
+
+
+
+        self.widget_file_copy_mode.anyClicked.connect(toggle_path_to_aligned_lyrics_copy_widgets)
+        toggle_path_to_aligned_lyrics_copy_widgets()
+
+        #Update signal here...
+
+        # self.widget_file_copy_mode.widget_combo_box.currentIndexChanged.connect(toggle_path_to_aligned_lyrics_copy_widgets)
+        # toggle_path_to_aligned_lyrics_copy_widgets(0)
+
+
         # Iterate through all a menu's actions
         # for action in menu_bar.actions():
         #     do_something = 0
+        
+
+
+
+    # def _setup_ui(self, path_to_ui_file : str):
+    #     """ Loads a Qt .ui interface via the path provided, and sets up static/dynamic widget behavior.
+        
+    #     The order of work is grouped into 3 categories:
+    #         1. Static Gui Elements
+    #         2. Dynamic Gui Elements
+    #         3. Slots/Signals
+
+    #     Args:
+    #         path_to_ui_file: Path to the .ui file to be loaded.
+    #     """
+    #     ### Static GUI Behavior
+    #     #qDebug("helpsors")
+
+    #     self.widget_window_main : QMainWindow = QUiLoader().load(path_to_ui_file)
+
+    #     # Set icon
+    #     # https://stackoverflow.com/questions/17034330/how-to-include-resource-file-in-cx-freeze-binary
+    #     icon = QIcon("./resources/lyric_manager.ico")
+    #     self.widget_window_main.setWindowIcon(icon)
+
+    #     self.widget_songs_processed: QTableWidget = self.widget_window_main.findChild(QTableWidget, "tableWidget_songs_processed")
+
+    #     self.widget_log: QPlainTextEdit = self.widget_window_main.findChild(QPlainTextEdit, "plainTextEdit_log")
+
+    #     self.widget_lyric_sources: QListWidget = self.widget_window_main.findChild(QListWidget, "listWidget_lyricSources")
+    #     self.widget_lyric_aligners: QListWidget = self.widget_window_main.findChild(QListWidget, "listWidget_lyricAligners")
+
+    #     self.widget_lyric_aligners.setSelectionBehavior( QAbstractItemView.SelectItems )
+    #     self.widget_lyric_aligners.setSelectionMode( QAbstractItemView.SingleSelection )
+
+    #     for key, fetcher in self.factory_lyric_fetcher.builders.items():
+    #         self._add_fetcher(key.name)
+
+    #     for key, aligner in self.factory_lyric_aligner.builders.items():
+    #         self._add_aligner(key.name)
+
+    #     self.widget_splitter_horizontal: QSplitter = self.widget_window_main.findChild(QSplitter, "splitter_horizontal")
+    #     self.widget_splitter_vertical: QSplitter = self.widget_window_main.findChild(QSplitter, "splitter_vertical")
+
+    #     # Oddly, QSplitter's are basically invisible in their default state. We modify it's CSS a tad to make them
+    #     # visible.
+    #     self.widget_window_main.setStyleSheet("QSplitter::handle { border: 1px outset darkgrey; } ")
+
+    #     self.widget_progress_bar_overall: QProgressBar = self.widget_window_main.findChild(QProgressBar, "progressBar_overall")
+    #     self.widget_progress_bar_overall.setValue(0)
+    #     self.widget_progress_bar_overall.setFormat("- Ready -")
+
+    #     widget_start_processing = self.widget_window_main.findChild(QPushButton, "pushButton_start_processing")
+
+    #     widget_button_set_path_NUSAutoLyrixAlign: QPushButton = \
+    #         self.widget_window_main.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign")
+    #     widget_button_set_path_NUSAutoLyrixAlign_working_directory: QPushButton = \
+    #         self.widget_window_main.findChild(QPushButton, "pushButton_set_path_to_NUSAutoLyrixAlign_working_directory")
+    #     widget_button_set_path_to_aligned_lyrics_copy: QPushButton = \
+    #         self.widget_window_main.findChild(QPushButton, "pushButton_set_path_to_aligned_lyrics_copy")
+
+    #     # We obtain the default values for our enum-based ComboBoxes form a default Settings object
+    #     settings = Settings()
+
+    #     self.widget_artist_song_name_source = \
+    #         self._create_combo_box_enum("comboBox_artist_song_name_source", settings.data.input.artist_song_name_source, "Processing/artist_song_name_source")
+    #     self.widget_file_copy_mode = \
+    #         self._create_combo_box_enum("comboBox_file_copy_mode", settings.data.output.aligned_lyrics_file_copy_mode, "Processing/file_copy_mode")
+    #     self.widget_aligned_lyrics_output_mode = \
+    #         self._create_combo_box_enum("comboBox_aligned_lyrics_output_mode", settings.data.output.aligned_lyrics_formatting, "Processing/aligned_lyrics_output_mode")
+
+
+
+    #     #################################################
+    #     ### Dynamic GUI Behavior
+    #     # - Replacing widgets defined via QtDesigner
+    #     # - Connecting Signals / Slots
+    #     self.widget_local_data_sources = self._setup_widget_local_data_sources()
+
+    #     # Set 'Delete' key to remove executable entries if the widget is active
+    #     QtGui.QShortcut(QtGui.QKeySequence("Delete"), self.widget_local_data_sources, self.widget_local_data_sources.remove_selected_items, context=QtCore.Qt.WidgetShortcut)
+
+    #     def open_directory_select_dialog_and_set_to_line_edit(qlineedit_widget_name: str):
+    #         """ Spawns a QFileDialog set to select a directory and applies the path to the QLineEdit with the given name. """
+    #         qline_edit_widget: QLineEdit = self.widget_window_main.findChild(QLineEdit, qlineedit_widget_name)
+            
+    #         dialog_path = QFileDialog.getExistingDirectory(
+    #             self.widget_window_main, "Open Directory",
+    #             str(self.path_to_application),
+    #             QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
+    #         )
+    #         qline_edit_widget.setText(dialog_path)
+
+        
+    #     def toggle_path_to_aligned_lyrics_copy_widgets(value):
+    #         lineEdit_path_to_aligned_lyrics_copy: QLineEdit = self.widget_window_main.findChild(QLineEdit, "lineEdit_path_to_aligned_lyrics_copy")
+    #         copy_mode = self.widget_file_copy_mode.get_value_as_enum()
+    #         if copy_mode == FileCopyMode.SeparateDirectory:
+    #             lineEdit_path_to_aligned_lyrics_copy.setDisabled(False)
+    #             widget_button_set_path_to_aligned_lyrics_copy.setDisabled(False)
+    #         else:
+    #             lineEdit_path_to_aligned_lyrics_copy.setDisabled(True)
+    #             widget_button_set_path_to_aligned_lyrics_copy.setDisabled(True)
+
+
+    #     self.widget_file_copy_mode.widget_combo_box.currentIndexChanged.connect(toggle_path_to_aligned_lyrics_copy_widgets)
+    #     toggle_path_to_aligned_lyrics_copy_widgets(0)
+
+
+    #     ### Slots and signals
+    #     widget_start_processing.clicked.connect(self.start_processing)
+
+    #     menu_bar: QMenuBar = self.widget_window_main.menuBar()
+    #     menu_bar.triggered.connect(self.sl_menu_bar_trigger)
+
+    #     function_set_path_to_NUSAutoLyrixAlign = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_NUSAutoLyrixAlign")
+    #     widget_button_set_path_NUSAutoLyrixAlign.clicked.connect(function_set_path_to_NUSAutoLyrixAlign)
+
+    #     function_set_path_to_NUSAutoLyrixAlign_working_directory = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_NUSAutoLyrixAlign_working_directory")
+    #     widget_button_set_path_NUSAutoLyrixAlign_working_directory.clicked.connect(function_set_path_to_NUSAutoLyrixAlign_working_directory)
+
+    #     function_set_path_to_aligned_lyrics_copy = partial(open_directory_select_dialog_and_set_to_line_edit, "lineEdit_path_to_aligned_lyrics_copy")
+    #     widget_button_set_path_to_aligned_lyrics_copy.clicked.connect(function_set_path_to_aligned_lyrics_copy)
+
+
+    #     # Iterate through all a menu's actions
+    #     # for action in menu_bar.actions():
+    #     #     do_something = 0
 
 
     def _load_ui_settings(self):
         """ Restores all GUI related settings, e.g. window position, checked settings, selected elements, etc. """
-        q_rect_geometry = self.q_settings.value("windowGeometry", self.widget_main_window.geometry())
-        self.widget_main_window.setGeometry(q_rect_geometry)
+        q_rect_geometry = self.q_settings.value("windowGeometry", self.widget_window_main.geometry())
+        self.widget_window_main.setGeometry(q_rect_geometry)
 
         # Splitters do not yield a 'reasonable' default value at this point in the code (returning [0,0]). Rather than
         # separating out this settings-loading, we opt to manually check if the splitter's values have been previously
@@ -340,11 +465,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self.gui_path_to_NUSLyrixAutoAlign = self.q_settings.value("Alignment/PathToNUSLyrixAutoAlign", None)
         self.gui_path_to_NUSLyrixAutoAlign_working_directory = self.q_settings.value("Alignment/PathToNUSLyrixAutoAlignWorkingDirectory", None)
 
-        self._get_checkbox_settings_value_or_default("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
-        self._get_checkbox_settings_value_or_default("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
+        self._load_and_set_checkbox_from_q_settings_or_default("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
+        self._load_and_set_checkbox_from_q_settings_or_default("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
 
-        self._set_selected_lyric_fetcher_types(fetcher_types)
-        self._set_selected_lyric_aligner_type(aligner_type)
+        self.lyric_fetchers.set_value(fetcher_types)
+        self.lyric_aligners.set_value(aligner_type)
 
         self.gui_path_to_aligned_lyrics_copy = self.q_settings.value("Processing/PathToAlignedLyricsCopy", None)
 
@@ -355,7 +480,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # restoring window position and size, it appears have issues working across multiple screens.
         # Unfortunately the two functions automatically convert the QRect object to/from byte-code, so the
         # problem isn't easily further diagnosed. Hence, we instead load/save the raw Geometry Rect object.
-        self.q_settings.setValue("WindowGeometry", self.widget_main_window.geometry())
+        self.q_settings.setValue("WindowGeometry", self.widget_window_main.geometry())
         self.q_settings.setValue("SplitterHorizontalGeometry", self.widget_splitter_horizontal.sizes())
         self.q_settings.setValue("SplitterVerticalGeometry", self.widget_splitter_vertical.sizes())
 
@@ -367,8 +492,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self.q_settings.setValue("TokensApiKeys/GoogleCustomSearchEngineId", self.gui_google_custom_search_engine_id)
 
         # Save processing-related settings...
-        selected_fetcher_types = self._get_selected_lyric_fetcher_types()
-        selected_aligner_type = self._get_selected_lyric_aligner_type()
+        selected_fetcher_types = self.lyric_fetchers.get_selected()
+        selected_aligner_type = self.lyric_aligners.get_selected()
         paths_to_process = self.widget_local_data_sources.get_paths()
 
         self.q_settings.setValue("Processing/FetcherTypes", selected_fetcher_types)
@@ -380,14 +505,14 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self.q_settings.setValue("Alignment/PathToNUSLyrixAutoAlign", self.gui_path_to_NUSLyrixAutoAlign)
         self.q_settings.setValue("Alignment/PathToNUSLyrixAutoAlignWorkingDirectory", self.gui_path_to_NUSLyrixAutoAlign_working_directory)
 
-        self._set_checkbox_settings_value("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
-        self._set_checkbox_settings_value("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
+        self._save_checkbox_to_q_settings("Processing/RecursivelyParseFolders", "checkBox_recursively_parse_folders_to_process")
+        self._save_checkbox_to_q_settings("Processing/OverwriteExisting", "checkBox_overwrite_existing_generated_files")
 
         self.q_settings.setValue("Processing/PathToAlignedLyricsCopy", self.gui_path_to_aligned_lyrics_copy)
 
-        self.widget_artist_song_name_source.save_setting()
+        self.widget_artist_song_title_source.save_setting()
         self.widget_file_copy_mode.save_setting()
-        self.widget_aligned_lyrics_output_mode.save_setting()
+        self.widget_aligned_lyrics_formatting.save_setting()
 
 
     def start_processing(self):
@@ -396,9 +521,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         To maintain similar behaviour between the Command-Line- and Graphical-User-Interface versions, we transfer
         relevant settings to a Settings-object and pass it to the underlying pipeline code in LyricManagerBase.
         """
-
-        selected_fetcher_types = self._get_selected_lyric_fetcher_types()
-        selected_aligner_type = self._get_selected_lyric_aligner_type()
+        selected_fetcher_types = self.lyric_fetchers.get_selected()
+        selected_aligner_type = self.lyric_aligners.get_selected()
         paths_to_process = self.widget_local_data_sources.get_checked_paths()
         
         settings = Settings()
@@ -414,13 +538,13 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         settings.data.input.paths_to_process = paths_to_process
         settings.data.input.recursively_process_paths = self.recursively_parse_folders_to_process
         settings.data.input.folders_to_exclude = []
-        settings.data.input.artist_song_name_source = self.widget_artist_song_name_source.get_value_as_enum()
+        settings.data.input.artist_song_name_source = self.widget_artist_song_title_source.get_selected()
 
         settings.data.output.overwrite_existing_generated_files = self.overwrite_existing_generated_files
         settings.data.output.path_to_working_directory = self.path_to_working_directory
         settings.data.output.path_to_reports = self.path_to_reports
-        settings.data.output.aligned_lyrics_file_copy_mode = self.widget_file_copy_mode.get_value_as_enum()
-        settings.data.output.aligned_lyrics_formatting = self.widget_aligned_lyrics_output_mode.get_value_as_enum()
+        settings.data.output.aligned_lyrics_file_copy_mode = self.widget_file_copy_mode.get_selected()
+        settings.data.output.aligned_lyrics_formatting = self.widget_aligned_lyrics_formatting.get_selected()
 
         settings.data.output.path_to_output_aligned_lyrics = Path(self.gui_path_to_aligned_lyrics_copy)
 
@@ -523,7 +647,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
 
     def show(self):
         """ A pass-through function for QMainWindow.show(). """
-        self.widget_main_window.show()
+        self.widget_window_main.show()
 
     
     def _setup_widget_local_data_sources(self):
@@ -532,10 +656,10 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         This allows us to still rely on QtDesigner to define the position and layout of the QListWidgetDragAndDrop.
         """
         # QListWidget to replace
-        widget_list_folders_placeholder: QListWidget = self.widget_main_window.findChild(QListWidget, "listWidget_localDataSources")
+        widget_list_folders_placeholder: QListWidget = self.widget_window_main.findChild(QListWidget, "listWidget_localDataSources")
 
         widget_list_local_data_sources = QListWidgetDragAndDrop(accepted_audio_filename_extensions=self.recognized_audio_filename_extensions)
-        widget_list_local_data_sources.placeholder_text = "Drag and drop data source folders here..."
+        widget_list_local_data_sources.placeholder_text = "Drag and drop audio files and folders here..."
 
         # We need the layout containing the placeholder widget to replace it.
         layout = widget_list_folders_placeholder.parent().layout()
@@ -559,14 +683,20 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
             A bool which informs Qt whether to filter this event out, i.e. not handle it further (True), or continue
             handling it in the remaining event pipeline (False).
         """
-        if origin is self.widget_main_window:
+        if origin is self.widget_window_settings:
+            if event.type() == QtCore.QEvent.KeyPress:
+                if event.key() == QtCore.Qt.Key_Escape:
+                    self.widget_window_settings.close()
+
+        if origin is self.widget_window_main:
             if event.type() == QtCore.QEvent.KeyPress:
 
                 # Special case for .close() - If we're closing the application, we should avoid calling super() as the
                 # application itself will soon cease to exist.
                 if event.key() == QtCore.Qt.Key_Escape:
                     # Expected to pretty much immediately trigger the QtCore.QEvent.Close case below.
-                    self.widget_main_window.close() 
+                    #self.widget_window_main.close()
+                    QApplication.closeAllWindows()
 
                 self.key_press_event(event)
             elif event.type() == QtCore.QEvent.Close:
@@ -587,84 +717,6 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         pass
 
 
-    def _get_selected_lyric_aligner_type(self):
-        """ Returns the selected lyric aligner. """
-
-        # Not ideal for performance reasons
-        for index in range(self.widget_lyric_aligners.count()):
-            item = self.widget_lyric_aligners.item(index)
-            widget_radio_button: QRadioButton = self.widget_lyric_aligners.itemWidget(item)
-
-            if widget_radio_button.isChecked():
-                text = widget_radio_button.text()
-                return LyricAlignerType[text]
-        
-        # Technically, QRadioButton should prevent the code from ever reaching this point
-        return LyricAlignerType.Disabled
-
-
-    def _set_selected_lyric_aligner_type(self, lyric_aligner_type: LyricAlignerType):
-        """ blrup """
-
-        # Not ideal for performance reasons
-        for index in range(self.widget_lyric_aligners.count()):
-            item = self.widget_lyric_aligners.item(index)
-            widget_radio_button: QRadioButton = self.widget_lyric_aligners.itemWidget(item)
-
-            text = widget_radio_button.text()
-            aligner_type = LyricAlignerType[text]
-
-            if aligner_type == lyric_aligner_type:
-                widget_radio_button.setChecked(True)
-        
-        # Technically, QRadioButton should prevent the code from ever reaching this point
-        return LyricAlignerType.Disabled
-
-
-    def _get_selected_lyric_fetcher_types(self) -> List[LyricFetcherType]:
-        """ Returns a list of all selected lyric fetchers. """
-        fetchers = []
-
-        model = self.widget_lyric_sources.model()
-        for index in range(model.rowCount()):
-
-            tt = model.index(index)
-            item = model.itemData(tt)
-
-            # At the time of writing, it's not exactly clear how to "properly" index into the derived QListWidget's
-            # Model. These hard-coded index numbers (0 and 10) are suboptimal.
-            item_name = item[0]
-            item_checked = (item[10] == QtCore.Qt.Checked.value)
-
-            # Skip any items that aren't checked.
-            if not item_checked:
-                continue
-
-            fetchers.append(LyricFetcherType[item_name])
-
-        return fetchers
-    
-
-    def _set_selected_lyric_fetcher_types(self, fetcher_types: List[LyricFetcherType]):
-        """ Checks any lyric fetcher types provided in the list.
-        
-        TODO: Iterating over the widget items isn't ideal, we should probably be iterating over the underlying model,
-        but it wasn't easy finding any code/examples as for how to do this with PySide6.
-        """
-
-        for index in range(self.widget_lyric_sources.count()):
-            item = self.widget_lyric_sources.item(index)
-
-            text = item.text()
-            item_fetcher_type = LyricFetcherType[text]
-
-            state_to_set = QtCore.Qt.Unchecked
-            if item_fetcher_type in fetcher_types:
-                state_to_set = QtCore.Qt.Checked
-            
-            item.setCheckState(state_to_set)
-
-    
     def sl_menu_bar_trigger(self, q_action: QAction):
         """ Triggered when a menu selection is made in LyricManager.
 
@@ -680,9 +732,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         #tt = q_action.text()
         action_object_name = q_action.objectName()
 
-        if action_object_name == "actionAbout_LyricManager":
+        if action_object_name == "actionAbout_Qt":
+            QApplication.aboutQt()
+        elif action_object_name == "actionAbout_LyricManager":
             QMessageBox.about(
-                self.widget_main_window,
+                self.widget_window_main,
                 f"About LyricManager v {DeveloperOptions.version}",
                 (
                     "Developed by Lasse Farnung Laursen.\n"

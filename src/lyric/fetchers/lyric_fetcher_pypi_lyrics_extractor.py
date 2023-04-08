@@ -38,6 +38,9 @@ class LyricFetcherPyPiLyricsExtractor(LyricFetcherBase):
         # hit, there's no need badger the API.
         self.quota_exceeded = False
 
+        # Ditto for an invalid API key, although this may not cost quota, but no reason to badger the online service.
+        self.bad_api_key = False
+
     def _get_lyric_text_raw_from_source(self, source: Any) -> str:
         """ Each fetcher will have a somewhat different source, so we must implement this - rewrite this code description. """
         return source["lyrics"]
@@ -55,18 +58,20 @@ class LyricFetcherPyPiLyricsExtractor(LyricFetcherBase):
         # For debugging purposes we'll log the name of the filename and the returned title to try and help validate
         # things a bit.
 
-
-
         return LyricValidity.Valid
     
+
     def _fetch_lyrics_payload(self, lyric_align_task:LyricAlignTask) -> LyricPayload:
 
         lyrics = LyricPayload()
 
+        # Intentionally returning an 'empty' LyricPayload with Validity defaulting to NotSet if we cannot fetch lyrics.
+        if self.bad_api_key:
+            logging.warning("PyPi - LyricsExtractor - Bad Api Key - Not fetching lyrics.")
+            return lyrics
+
         if self.quota_exceeded:
-            logging.warning("GCS quota exceeded in Pypi_LyricsExtractor - Not fetching lyrics.")
-            # We intentionally return the Lyrics object with validity defaulting to NotSet, as we're prevented
-            # from accessing the source due quota being exceeded.
+            logging.warning("PyPi - LyricsExtractor - Quota exceeded - Not fetching lyrics.")
             return lyrics
         
         # For this lyrics fetcher, we have a very low error tolerance so as to not exhaust any quotas.
@@ -96,9 +101,13 @@ class LyricFetcherPyPiLyricsExtractor(LyricFetcherBase):
                 self.fetch_history[lyric_align_task.filename].not_found += 1
             else:
                 if isinstance(exception_contents_at_error, dict):
-                    if exception_contents_at_error['code'] == 429:
+                    if exception_contents_at_error['code'] == 400:
+                        self.bad_api_key = True
+                        logging.warning("PyPi - LyricsExtractor - Bad Api Key.")
+                        return lyrics
+                    elif exception_contents_at_error['code'] == 429:
                         self.quota_exceeded = True
-                        logging.warning("Quota exceeded error")
+                        logging.warning("PyPi - LyricsExtractor - Quota exceeded error")
                         # We intentionally return the Lyrics object with validity defaulting to NotSet, as we're
                         # prevented from accessing the source due quota being exceeded.
                         return lyrics
@@ -106,7 +115,7 @@ class LyricFetcherPyPiLyricsExtractor(LyricFetcherBase):
 
                         self.fetch_history[lyric_align_task.filename].unknown += 1
                         #logging.info("Unknown error encountered when fetching lyrics.")
-                        logging.exception("Unknown error encountered when fetching lyrics.", e)
+                        logging.exception("Unknown error encountered when fetching lyrics.")
 
             self._save_fetch_history()
 

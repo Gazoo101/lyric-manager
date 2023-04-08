@@ -9,7 +9,9 @@ from pathlib import Path
 from datetime import datetime
 from typing import TYPE_CHECKING, Union
 
+
 # 3rd Party
+import eyed3
 
 
 # 1st Party
@@ -46,6 +48,7 @@ from .lyric import LyricMatcher
 
 from src.lyric_processing_config import Settings
 from src.lyric_processing_config import FileCopyMode
+from src.lyric_processing_config import AlignedLyricsFormatting
 
 if TYPE_CHECKING:
     from .lyric.aligners import WordAndTiming
@@ -97,6 +100,10 @@ class LyricManagerBase:
 
         self.recognized_audio_filename_extensions = ["mp3", "wav", "aiff"]
 
+        if DeveloperOptions.eyed3_log_only_errors:
+            eyed3.log.setLevel(logging.ERROR)
+
+
 
 
     def _valid_audio_extension(self, filename: str):
@@ -109,7 +116,7 @@ class LyricManagerBase:
 
     def _create_factory_lyric_fetcher(self):
         factory = ObjectFactory()
-        factory.register_builder(LyricFetcherType.Disabled, LyricFetcherDisabled)
+        #factory.register_builder(LyricFetcherType.Disabled, LyricFetcherDisabled)
         factory.register_builder(LyricFetcherType.Pypi_LyricsGenius, LyricFetcherPyPiLyricsGenius)
         factory.register_builder(LyricFetcherType.Pypi_LyricsExtractor, LyricFetcherPyPiLyricsExtractor)
         factory.register_builder(LyricFetcherType.LocalFile, LyricFetcherLocalFile)
@@ -234,6 +241,7 @@ class LyricManagerBase:
         # fetcher at this point.
         if not lyric_fetchers:
             # If we can't obtain any lyric sources locally or remotely, we may as well cut to the chase
+            logging.info("No lyric fetches selected. No lyrics to parse.")
             return []
 
 
@@ -461,7 +469,7 @@ class LyricManagerBase:
             path_to_json_lyrics_file = file_output_path / path_to_json_lyrics_file.name
 
         formatting_indent = None
-        if export_readable_json:
+        if export_readable_json == AlignedLyricsFormatting.Readable:
             formatting_indent=4
 
         with open(path_to_json_lyrics_file, 'w') as file:

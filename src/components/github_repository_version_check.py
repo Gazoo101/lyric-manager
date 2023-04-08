@@ -1,5 +1,6 @@
 # Python
 import requests
+from requests import ConnectionError
 import json
 import logging
 from typing import Optional
@@ -17,7 +18,13 @@ class GithubRepositoryVersionCheck():
     @staticmethod
     def _fetch_latest_version_from_github_repo(user: str, repo_name:str):
         api_url = f"https://api.github.com/repos/{user}/{repo_name}/releases/latest"
-        response = requests.get(api_url)
+        
+        try:
+            response = requests.get(api_url)
+        except ConnectionError as E:
+            logging.info(f"Error when attempting to access the latest release on GitHub.")
+            return None
+
         if response.status_code != 200:
             logging.info(f"Error when accessing githib api url: {response.status_code} {response.reason}")
             return None
@@ -32,6 +39,8 @@ class GithubRepositoryVersionCheck():
         """ Checks against online version... """
 
         fetched_version = GithubRepositoryVersionCheck._fetch_latest_version_from_github_repo("Gazoo101", "lyric-manager")
+        if fetched_version is None:
+            return None
 
         if version.parse(version_current) < version.parse(fetched_version):
             #logging.warning(f"Current Python version '{version_current}', is below required version '{version_required}'.")

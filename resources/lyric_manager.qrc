@@ -1,0 +1,8 @@
+<RCC>
+  <qresource>
+    <file>icons/folder-open-solid.svg</file>
+    <file>icons/play-solid.svg</file>
+    <file>icons/lyric_manager.ico</file>
+    <file>icons/gear-solid.svg</file>
+  </qresource>
+</RCC>

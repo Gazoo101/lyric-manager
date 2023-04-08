@@ -41,7 +41,7 @@ class LyricAlignTask:
     lyric_lines_expanded: list[str] = field(default_factory=list)
     lyric_text_alignment_ready: str = ""                            # Lyric text more suitable for NUSAutoAlignLyrix
 
-    lyric_fetcher_type_source: LyricFetcherType  = LyricFetcherType.Disabled # Local .txt, Genius DB, or other source
+    lyric_fetcher_type_source: LyricFetcherType = None # Local .txt, Genius DB, or other source
 
     # Whether [8x], [16x], (4x) or (10x) is in the raw lyrics - actually {} I think...?
     detected_multiplier: bool       = False

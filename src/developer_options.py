@@ -16,7 +16,7 @@ class DeveloperOptions():
     """ Major options """
 
     # Version is represented as a string so we can graduate to x.y.z versioning in the near-future
-    version: str = "0.8"
+    version: str = "1.0"
 
     class ExecutionMode(Enum):
         # Standard internal release. Should override all debugging related options.
@@ -73,3 +73,7 @@ class DeveloperOptions():
     @classmethod
     def automatically_start_processing(cls):
         return cls.is_not_release() and cls.gui_automatically_start_processing
+    
+    # Pypi package eyed3 is used to access mp3 tag information. It is very verbose re. invalid tags, and we're typically
+    # only interested in its errors.
+    eyed3_log_only_errors = True

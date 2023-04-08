@@ -6,21 +6,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Added
+
+
+### Changed
+
+
+### Removed
+
+## [1.0]
+### Added
+- A separate GUI Settings Window which now supports most of LyricManager's settings
 - GUI now supports specifying LyricAlignment location and working directory
 - Widgets for remaining configuration added:
     - Determining audio artist and song title
     - Aligned Lyrics Formatting
     - Aligned Lyrics File Copy Mode
+- Icons added to GUI tool-buttons.
+- Proper error handling for when bad API key is handed to the LyricExtractor Lyric fetcher.
+- Added .qrc and resources.py files
+- Enum-based QCheckBox and QRadioBox to encapsulate and represent various LyricManager settings.
 
 ### Changed
+- Better encapsulated widgets selecting lyric aligner(s) and lyric fetcher(s)
 - Notes are now added to processing table hinting at issues/progress with processed files.
 - Paths to individual audio files, as well as folders, is now supported.
 - Fixed bug where LyricManager would occasionally only recognize .mp3 files, and not other valid types of audio files.
 - Reduced superfluous error messages.
 - Fixed bug related to NUSAutoLyrixAlign working directory not being saved properly
 - Fixed line-edit widgets delivering strings as opposed to Path objects further on to the alignment pipeline
+- Fixed crash if unable to query the current release of LyricManager on Github.
+- Fixed AlignedLyricsFormatting Enum not being properly used in LyricManagerBase.
+- Suppressed eyed3 logging output, apart from errors.
+- Renamed .ui files to be more informative.
 
 ### Removed
+- Listed limitation of a single online lyrics source. LyricManager now supports 2 online lyric sources.
+- LyricFetcher.Disabled from Enum as its existence un-necessarily complicates GUI code. Value 'None' used when
+  the LyricFetcher source has yet to be set for a task.
 
 ## [0.7]
 ### Added

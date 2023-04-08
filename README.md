@@ -69,7 +69,10 @@ Mac OS I'd support if I had access to Apple hardware :(
  
 ### Source
 
-Install Python 3.7 or newer, check-out the LyricManager repository, install Python package requirements via `requirements.txt`, then run GUI / CLI version as needed.
+- Install Python 3.7 or newer.
+- Check-out the LyricManager repository.
+- Compile a resources.py from the `lyric_manager.qrc` file.
+- Install Python package requirements via `requirements.txt`, then run GUI / CLI version as needed.
 
 If using the CLI version use the provided `settings-example.yaml` file to set the appropriate settings, and execute `lyric_manager_cli.py`.
 
@@ -189,10 +192,20 @@ lyric-manager/
 
 Lyric Manager has a number of known limitations:
 
-- Lyric Manager expects a specific song filenaming convention is expected: "<artist> - <songname>.mp3" (or other audio extension)
-- Lyric Manager only supports a single lyric aligner (for now), i.e. NUSAutoLyrixAlign offline (found here: https://github.com/chitralekha18/AutoLyrixAlign)
+- If the 'artist_song_name_source' is set to 'FileName', LyricManager expects the following filename convention:
+  "<artist> - <songtitle>.audio_extension", This cannot currently be re-configured.
+- LyricManager (currently) only supports a single lyric aligner, i.e. NUSAutoLyrixAlign offline (found here: https://github.com/chitralekha18/AutoLyrixAlign)
     - In the meantime, you can use the online version of NUSAutoLyrixAlign (found here: https://autolyrixalign.hltnus.org/) and rename the output (for Audacity - selected in their online tool) to be the offline extension, e.g. `song.nusalaoffline`
-- Lyric Manager only supports fetching lyrics from one lyric database or a manually provided file
+
+# External Resources and Libarries
+
+FontAwesome Fonts: Copyright (C) 2023 Fonticons, Inc. Licensed under a Creative Commons Attribution 4.0 International
+License. See CC-BY-4.0.txt file for details.
+Website: https://fontawesome.com/
+Note: Despite the fact that the .svg files refer to the Pro license. These fonts are *not* Pro fonts. This is a confirmed bug in the svg files provided via the free-version that FontAwesome are working to fix.
+
+Qt: Copyright (C) 2018 The Qt Company Ltd. Licensed under GPL license, see LICENSE file for details.
+Website: https://www.qt.io/
 
 
 # FAQ
