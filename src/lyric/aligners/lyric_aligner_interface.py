@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 # 1st Party
+from ...components import FileOperations
 
 
 @dataclass
@@ -72,10 +73,20 @@ class LyricAlignerInterface(ABC):
 
     #     return path_to_aligned_lyric_file.exists()
 
-    def copy_aligned_lyrics_output(self, path_to_audio_file: Path, path_to_aligned_lyrics: Path):
+    def copy_aligned_lyrics_to_working_directory(self, path_to_aligned_lyrics: Path, path_to_audio_file: Path):
+        """ Copies 'lyric_aligned.txt' from a temporary output path to LyricManagers working directory.
+
+        Args:
+            path_to_aligned_lyrics: Path to the temporary 'lyric_aligned.txt' file.
+            path_to_audio_file: Path to the audio file to which the lyrics are aligned. Only used for naming, i.e. to
+                create 'artist - song title.aligned_lyrics'
+        Returns:
+            A path to the 'lyric_aligned.txt' file in the working directory.
+        """
         path_to_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
-        components.FileOperations.copy_and_rename(path_to_aligned_lyrics, path_to_aligned_lyric_file)
+        FileOperations.copy_and_rename(path_to_aligned_lyrics, path_to_aligned_lyric_file)
         return path_to_aligned_lyric_file
+
 
     @abstractmethod
     def align_lyrics(self, path_to_audio_file: Path, path_to_lyric_input: Path, use_preexisting: bool) -> list[WordAndTiming]:
