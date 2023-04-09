@@ -427,6 +427,8 @@ class LyricManagerBase:
         # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
         lyric_align_task.lyric_text_alignment_ready = self._string_list_to_string(lyrics_alignment_ready)
 
+        # The only lyric aligner we currently support accepts input via on-disk files, therefore we must write an
+        # 'alignment ready' file to disk in order to 'pass it' to the aligner.
         path_to_alignment_ready_file = lyric_align_task.path_to_audio_file.with_suffix(self.extension_alignment_ready)
 
         if file_output_path:
@@ -435,9 +437,6 @@ class LyricManagerBase:
         # TODO: We should eventually check if the lyric aligner can manage utf-8 files or needs strictly ASCII
         FileOperations.write_utf8_string(path_to_alignment_ready_file, lyric_align_task.lyric_text_alignment_ready)
 
-
-        # TODO: Write intermediate lyric file on-disk for aligner tool to use
-        #intermediate_lyric_file = "path"
 
         time_aligned_lyrics: list[WordAndTiming] = lyric_aligner.align_lyrics(
             lyric_align_task.path_to_audio_file,
