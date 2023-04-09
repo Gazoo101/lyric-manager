@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Disabled aligner fixed.
+- Alignment ready data is now properly added to the Lyric Align Task object being passed around (for debug purposes).
 
 ### Removed
 - NUSAutoLyrixAlignOnline from the GUI as an option, as it's currently not implemented.

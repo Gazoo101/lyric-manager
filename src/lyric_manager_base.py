@@ -425,7 +425,7 @@ class LyricManagerBase:
             lyrics_alignment_ready.append(lyric.word_alignment)
 
         # ["line 1", "line 2", ... "line n"] -> "line 1 line 2 ... line n"
-        complete_lyric_string = self._string_list_to_string(lyrics_alignment_ready)
+        lyric_align_task.lyric_text_alignment_ready = self._string_list_to_string(lyrics_alignment_ready)
 
         path_to_alignment_ready_file = lyric_align_task.path_to_audio_file.with_suffix(self.extension_alignment_ready)
 
@@ -433,9 +433,8 @@ class LyricManagerBase:
             path_to_alignment_ready_file = file_output_path / path_to_alignment_ready_file.name
 
         # TODO: We should eventually check if the lyric aligner can manage utf-8 files or needs strictly ASCII
-        FileOperations.write_utf8_string(path_to_alignment_ready_file, complete_lyric_string)
-        # with open(path_to_alignment_ready_file, 'wt') as file:
-        #     file.write(complete_lyric_string)
+        FileOperations.write_utf8_string(path_to_alignment_ready_file, lyric_align_task.lyric_text_alignment_ready)
+
 
         # TODO: Write intermediate lyric file on-disk for aligner tool to use
         #intermediate_lyric_file = "path"
@@ -445,6 +444,11 @@ class LyricManagerBase:
             path_to_alignment_ready_file,
             use_preexisting=True
         )
+
+        # If we received an empty list, something went awry with the lyric alignment
+        if not time_aligned_lyrics:
+            logging.info("No alignment peformed.")
+            return lyric_align_task
 
         lyrics_structured_aligned, match_result = self.lyric_matcher.match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
         logging.info(f"Successfully matched words: {match_result.get_string()})")
