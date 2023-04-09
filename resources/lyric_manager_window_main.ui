@@ -132,14 +132,29 @@
          <widget class="QListWidget" name="listWidget_localDataSources"/>
         </item>
         <item>
-         <widget class="QCheckBox" name="checkBox_recursively_parse_folders_to_process">
-          <property name="text">
-           <string>Recursively parse folders to process</string>
-          </property>
-          <property name="checked">
-           <bool>false</bool>
-          </property>
-         </widget>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="QCheckBox" name="checkBox_recursively_parse_folders_to_process">
+            <property name="text">
+             <string>Recursively parse folders to process</string>
+            </property>
+            <property name="checked">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="pushButton_clear_output">
+            <property name="text">
+             <string>Clear Output</string>
+            </property>
+            <property name="icon">
+             <iconset resource="lyric_manager.qrc">
+              <normaloff>:/icons/trash-can-solid.svg</normaloff>:/icons/trash-can-solid.svg</iconset>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </widget>

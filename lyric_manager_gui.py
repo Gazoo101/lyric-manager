@@ -198,6 +198,8 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self.widget_songs_processed: QTableWidget = self.widget_window_main.findChild(QTableWidget, "tableWidget_songs_processed")
         self.widget_log: QPlainTextEdit = self.widget_window_main.findChild(QPlainTextEdit, "plainTextEdit_log")
 
+        self.widget_button_clear_output: QPushButton = self.widget_window_main.findChild(QPushButton, "pushButton_clear_output")
+
         ###
         # Static GUI - Settings Window
         placeholder_artist_song_title_source: QRadioButton = self.widget_window_settings.findChild(QRadioButton, "radioButton_artist_song_title_source_placeholder")
@@ -247,6 +249,11 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         # Set 'Delete' key to remove executable entries if the widget is active
         QtGui.QShortcut(QtGui.QKeySequence("Delete"), self.widget_local_data_sources, self.widget_local_data_sources.remove_selected_items, context=QtCore.Qt.WidgetShortcut)
 
+        def clear_outputs():
+            self._clear_processed_songs_table()
+            self.widget_log.clear()
+
+        self.widget_button_clear_output.clicked.connect(clear_outputs)
         
 
 
@@ -608,12 +615,16 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         radio_button.setChecked( True )
 
 
-    def _update_processed_table(self, lyric_align_tasks: list[LyricAlignTask]):
-        """ Updates the processed table GUI widget communicating the % of matched lyrics and overall result of the given tasks. """
-
+    def _clear_processed_songs_table(self):
         # Clear rows without clearing the column names
         # Source: https://forum.qt.io/topic/85189/how-not-to-delete-column-names-in-qtablewidget
         self.widget_songs_processed.model().removeRows(0, self.widget_songs_processed.rowCount())
+
+
+    def _update_processed_table(self, lyric_align_tasks: list[LyricAlignTask]):
+        """ Updates the processed table GUI widget communicating the % of matched lyrics and overall result of the given tasks. """
+
+        self._clear_processed_songs_table()
 
         self.widget_songs_processed.setRowCount(len(lyric_align_tasks))
 

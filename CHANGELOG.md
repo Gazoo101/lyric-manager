@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ## [1.0.1]
+### Added
+- Added 'Clear Output' button.
+
 ### Changed
 - Disabled aligner fixed.
 

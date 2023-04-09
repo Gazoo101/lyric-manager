@@ -1,5 +1,6 @@
 <RCC>
   <qresource>
+    <file>icons/trash-can-solid.svg</file>
     <file>icons/folder-open-solid.svg</file>
     <file>icons/play-solid.svg</file>
     <file>icons/lyric_manager.ico</file>
