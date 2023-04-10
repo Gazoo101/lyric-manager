@@ -30,19 +30,20 @@ def create_build_path(application_name: str) -> str:
     """ Generates a path containing the application version number and datetime of the "build".
 
     Output Examples:
-        - build\\v0.5---2023-03-16_07_54_16\\<application_name>-v0.5-AMD64
-        - build\\v0.5---2023-04-22_10_11_09\\<application_name>-v0.5-AMD64
-        - build\\v0.7---2023-04-22_10_11_09\\<application_name>-v0.7-AMD64
+        - build\\v0.5---2023-03-16_07_54_16\\<application_name>-v0.5-Windows
+        - build\\v0.5---2023-04-22_10_11_09\\<application_name>-v0.5-Windows
+        - build\\v0.7---2023-04-22_10_11_09\\<application_name>-v0.7-Linux
                   ^                           ^
                   |                          Release folder, automatically zipped for distribution.
                  Dev. folder to track version/time of build
     """
-    machine_architecture = platform.machine()
+    #machine_architecture = platform.machine() # AMD64
+    operating_system = platform.system()
 
     now = datetime.now()
     timestamp_folder_name = now.strftime("%Y-%m-%d_%H_%M_%S")
 
-    execution_folder = f"{application_name}-v{DeveloperOptions.version}-{machine_architecture}"
+    execution_folder = f"{application_name}-v{DeveloperOptions.version}-{operating_system}"
 
     build_path = Path("./build/") / f"v{DeveloperOptions.version}---{timestamp_folder_name}" / execution_folder
 
@@ -77,8 +78,8 @@ build_exe_options = {
     # *Substantially* reduces the size of the created frozen package.
     "zip_include_packages": ["PySide6"],
     "include_files": [
-        ("resources/lyric_manager_v4.ui", "resources/lyric_manager_v4.ui"),
-        ("resources/lyric_manager.ico", "resources/lyric_manager.ico")
+        ("resources/lyric_manager_window_main.ui", "resources/lyric_manager_window_main.ui"),
+        ("resources/lyric_manager_window_settings.ui", "resources/lyric_manager_window_settings.ui")
     ],
     "build_exe": str(build_path)
 }
@@ -86,7 +87,7 @@ build_exe_options = {
 executables = [Executable(
     "lyric_manager_gui.py",
     base=base,
-    icon="resources/lyric_manager.ico"
+    icon="resources/icons/lyric_manager.ico"
 )]
 
 setup(
