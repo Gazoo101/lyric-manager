@@ -48,7 +48,7 @@ class DeveloperOptions():
     # intensive work. Settings this flag to false forces LyricManager to be single-threaded, significantly easing debugging
     # and developing new code.
     gui_multithreading_enabled      = True
-    gui_multithreading_enabled      = False
+    #gui_multithreading_enabled      = False
 
     @classmethod
     def is_multithreading_enabled(cls):
