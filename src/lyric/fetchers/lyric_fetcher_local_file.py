@@ -134,7 +134,12 @@ class LyricFetcherLocalFile(LyricFetcherBase):
         lyrics = "\n".join(lyrics_list)
 
         lyrics = lyrics.replace('[', '').replace(']', '')
-        lyrics = lyrics.replace('-', '')
+
+        # This is intentionally disabled, as in some lyrics (such as those by 50 cent) he sings "two-step" and "G-Unit".
+        # Lyrically, these are connected words, but it's not correct to smoosh them together. They should be aligned as
+        # individual words. Thus, we disable this.
+        # TODO: Figure out if this should instead insert a space?
+        #lyrics = lyrics.replace('-', '')
 
         all_lyric_lines = lyrics.splitlines()
 
