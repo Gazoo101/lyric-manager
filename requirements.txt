@@ -5,3 +5,4 @@ jsonpickle
 tqdm
 packaging
 eyed3
+jsons
