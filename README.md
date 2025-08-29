@@ -86,10 +86,11 @@ Lyric Manager supports the following sources:
 
 ## LyricAligners
 
-Lyric Manager currently only supports one aligner:
+Lyric Manager currently only supports one lyric-aligner:
 
-- [NUSAutoLyrixAlign](https://github.com/chitralekha18/AutoLyrixAlign) which runs via Singularity on Linux.
-  - I can confirm it works on Ubuntu 22.04 after some minor patching work.
+- [NUSAutoLyrixAlign](https://github.com/chitralekha18/AutoLyrixAlign) confirmed to work with:
+  - Apptainer 1.4.2 on Ubuntu 24.04. Apptainer is the recommended approach.
+  - Singularity 2.5.2 on Ubuntu 22.04. Note some light manual patching is required to have the NUSAutoLyrixAlign image to execute. Singularity is on legacy support, expect it to be removed in the future.
 
 # Input / Output
 
