@@ -1,4 +1,5 @@
 # Python
+import os
 import subprocess
 import logging
 from pathlib import Path
@@ -187,12 +188,24 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
         process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
 
+        # Apptainer's approach
+        process = ['apptainer', 'exec', 'kaldi.simg', './RunAlignment.sh', f'"{path_temp_file_audio}"', f'"{path_temp_file_lyric}"', f'"{path_temp_file_lyric_aligned}"']
+
+        #apptainer exec kaldi.simg ./RunAlignment.sh example/Abba.KnowingMeKnowingYou.wav example/Abba.KnowingMeKnowingYou.lyrics.txt example/Abba.KnowingMeKnowingYou_aligned.txt
+
         process_executed = " ".join(process)
 
         # logging.info() -- Enter details of audio file (original name here)
         logging.info(f"Processing Audio: {path_to_audio_file.name}")
         logging.info(f"Executing command: {process_executed}")
-        subprocess.run(process, cwd=self.path_aligner)
+        result = subprocess.run(process_executed,
+                                shell=True,
+#                                env=os.environ.copy(),
+                                cwd=self.path_aligner,
+                                check=True)
+
+        if result.returncode != 0:
+            logging.warning("Lyric alignment did not complete as expected.")
 
         return path_temp_file_lyric_aligned
 
