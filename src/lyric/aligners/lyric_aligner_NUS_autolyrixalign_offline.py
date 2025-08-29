@@ -14,6 +14,8 @@ from .lyric_aligner_interface import WordAndTiming
 
 from ...components import FileOperations
 
+from ...developer_options import DeveloperOptions
+
 
 class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
     """ Lyric aligner based on the offline version of the NUS Auto Lyrix Align project which can be downloaded here:
@@ -186,21 +188,35 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
         path_temp_file_lyric_aligned = self.path_aligner_temp_dir / "lyric_aligned.txt"
 
-        process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
+        #process = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
 
         # Apptainer's approach
-        process = ['apptainer', 'exec', 'kaldi.simg', './RunAlignment.sh', f'"{path_temp_file_audio}"', f'"{path_temp_file_lyric}"', f'"{path_temp_file_lyric_aligned}"']
+        #process = ['apptainer', 'exec', 'kaldi.simg', './RunAlignment.sh', f'"{path_temp_file_audio}"', f'"{path_temp_file_lyric}"', f'"{path_temp_file_lyric_aligned}"']
 
         #apptainer exec kaldi.simg ./RunAlignment.sh example/Abba.KnowingMeKnowingYou.wav example/Abba.KnowingMeKnowingYou.lyrics.txt example/Abba.KnowingMeKnowingYou_aligned.txt
 
-        process_executed = " ".join(process)
+        #process_executed = " ".join(process)
+
+        match DeveloperOptions.model_execution_application:
+            case DeveloperOptions.ModelExecutionApplication.Apptainer:
+                arguments_list = ['apptainer', 'exec', 'kaldi.simg', './RunAlignment.sh', f'"{path_temp_file_audio}"', f'"{path_temp_file_lyric}"', f'"{path_temp_file_lyric_aligned}"']
+                arguments_string = " ".join(arguments_list)
+                subprocess_arguments = arguments_list
+                # Without Shell, Apptainer appears to not have access to relative paths, so moving the aligned text output from 'AlignedLyricsOutput/alignedoutput.txt' to somewhere else.
+                use_shell = True
+                
+            case DeveloperOptions.ModelExecutionApplication.Singularity:
+                arguments_list = ['singularity', 'shell', 'kaldi.simg', '-c', f'"./RunAlignment.sh" "{path_temp_file_audio}" "{path_temp_file_lyric}" "{path_temp_file_lyric_aligned}"']
+                arguments_string = " ".join(arguments_list)
+                subprocess_arguments = arguments_string
+                use_shell = False
+                
 
         # logging.info() -- Enter details of audio file (original name here)
         logging.info(f"Processing Audio: {path_to_audio_file.name}")
-        logging.info(f"Executing command: {process_executed}")
-        result = subprocess.run(process_executed,
-                                shell=True,
-#                                env=os.environ.copy(),
+        logging.info(f"Executing command: {arguments_string}")
+        result = subprocess.run(subprocess_arguments,
+                                shell=use_shell,
                                 cwd=self.path_aligner,
                                 check=True)
 

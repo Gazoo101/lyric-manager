@@ -26,6 +26,10 @@ class DeveloperOptions():
 
         LyricParsing = auto()
 
+    class ModelExecutionApplication(Enum):
+        Apptainer = auto()
+        Singularity = auto()
+
     # LyricManager offers various execution modes to allow for faster iterative development for a select set of code
     # paths:
     #
@@ -34,7 +38,6 @@ class DeveloperOptions():
 
     execution_mode = ExecutionMode.ReleaseInternal
     #execution_mode = ExecutionMode.ReleaseExternal
-
 
     @classmethod
     def is_release(cls):
@@ -64,6 +67,8 @@ class DeveloperOptions():
         else:
             return cls.logging_level
 
+
+    model_execution_application =ModelExecutionApplication.Apptainer
 
     """ Minor options """
 
