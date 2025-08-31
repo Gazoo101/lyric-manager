@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+## [1.1.0]
+### Added
+- The ability to suppement lyric-aligned output with a manually tweaked one, e.g. the suffix '.nusalaoffline-manual' will
+override the '.nusalaoffline' aligned data, *if* the match percentage is equal or higher.
+- 'lyric match percentage' is now written to the json output, updating the schema version to 2.1.0. This is useful as
+better matched lyrics are expected to work well in more timing sensitive visuals.
+
+### Changed
+- Fixed WorkingDirectory being overwritten every time the GUI was started. Downside is that his entry is stored in Qt-
+like data, i.e. /my/selected/path/ gets turned into @Variant(\0\0\0\x7f\0\0\0\x18PySide::PyObjectWrapper\0\0\0\0S\x80\x4\x95H\0\0\0\0\0\0\0\x8c\apathlib\x94\x8c\vWindowsPath\x94\x93\x94\x8c\x3\x44:\\\x94\x8c\x4\x43ode\x94\x8c\x19lyric-manager-working-dir\x94\x87\x94R\x94.)
+- Re-factored some of the processing internals to be better encapsulated and offer cleaner support of the both automated
+and tweaked aligned lyric data.
+
 ## [1.0.1]
 ### Added
 - Added 'Clear Output' button.

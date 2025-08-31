@@ -11,6 +11,9 @@ from datetime import datetime
 # 1st Party
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
+from .lyric_aligner_interface import AlignerOutput
+
+from ...lyric.dataclasses_and_types import LyricAlignTask
 
 from ...components import FileOperations
 
@@ -67,7 +70,7 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
             logging.fatal(error)
             raise RuntimeError(error)
 
-        super().__init__(".nusalaoffline", path_aligner_temp_dir, path_to_output_dir)
+        super().__init__(".nusalaoffline", ".nusalaoffline-manual", path_aligner_temp_dir, path_to_output_dir)
         self.path_aligner = path_to_aligner
         self.path_to_output_dir = path_to_output_dir
 
@@ -79,16 +82,16 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
 
         # Find critical files
         path_to_alignment_script = path_to_aligner / "RunAlignment.sh"
-        path_to_singularity_image = path_to_aligner / "kaldi.simg"
+        path_to_container_image = path_to_aligner / "kaldi.simg"
 
-        if not path_to_alignment_script.exists() or not path_to_singularity_image.exists():
+        if not path_to_alignment_script.exists() or not path_to_container_image.exists():
             logging.warning("NUSAutoLyrixAlign is missing vital files to execute properly, can only run on cached files.")
             return
         
         self.aligner_functional = True
 
 
-    def _convert_to_wordandtiming(self, path_to_aligned_lyrics):
+    def _convert_to_wordandtiming(self, path_to_aligned_lyrics) -> list[WordAndTiming]:
 
         # Input looks like this:
         # 9.69 10.53 NO
@@ -113,16 +116,8 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         return timed_words
 
 
-    def align_lyrics(self, path_to_audio_file, path_to_lyric_input, use_preexisting=True) -> list[WordAndTiming]:
-        """ TODO: 1-line explanation
-
-        Copies audio and lyric files to a temporary location in order to then
-        execute NUSAutoLyrixAlign, create an aligned lyric text and then copy this
-        back.
-
-        NUSAutoLyrixAlign executes via Singularity, and it would appear it doesn't
-        handle spaces in path's well. Therefore we eliminate all spaces in the
-        temporary pathing.
+    def align_lyrics(self, lyric_align_task: LyricAlignTask, path_to_lyric_input: Path, use_preexisting=True) -> AlignerOutput:
+        """ Align lyrics using given task and lyric input path. May use pre-existing cached output and override alignment data if manual tweaks exist.
 
         Args:
             path_to_audio_file:
@@ -131,46 +126,72 @@ class LyricAlignerNUSAutoLyrixAlignOffline(LyricAlignerInterface):
         Returns:
 
         """
-        # Check if the saved raw version exists
-        if use_preexisting:
-            preexisting_aligned_lyric_file = self._get_cached_aligned_output_file(path_to_audio_file)
+        aligner_output: AlignerOutput = AlignerOutput()
 
-            #preexisting_aligned_lyric_file = self.get_corresponding_aligned_lyric_file(path_to_audio_file)
-            if preexisting_aligned_lyric_file:
-                logging.info(f'Found pre-existing NUSAutoLyrixAlign file: {preexisting_aligned_lyric_file}')
-                word_timings = self._convert_to_wordandtiming(preexisting_aligned_lyric_file)
-                return word_timings
-            
+        ################################################################################################################
+        # 1. Get pre-cached or generate lyric alignment data
+        path_to_model_output = None
+
+        if use_preexisting:
+            # Check for previously generated .nusalaoffline file
+            path_to_model_output = self._get_cached_aligned_output_file(lyric_align_task.path_to_audio_file)
+
+            if path_to_model_output:
+                logging.info(f'Found pre-existing NUSAutoLyrixAlign file: {path_to_model_output}')
+        else:
+            # Otherwise, create a fresh .nusalaoffline file
+            path_to_model_output = self._align_lyrics_using_model(lyric_align_task, path_to_lyric_input)
+            if not path_to_model_output:
+                return None
+        
+        aligner_output.automated = self._convert_to_wordandtiming(path_to_model_output)
+
+        ################################################################################################################
+        # 2. Get manually tweaked word-timing data
+        path_to_tweaked_output = self._get_manually_tweaked_alignment_data_file(lyric_align_task.path_to_audio_file)
+        if path_to_tweaked_output:
+            aligner_output.tweaked = self._convert_to_wordandtiming(path_to_tweaked_output)
+
+        return aligner_output
+
+
+    def _align_lyrics_using_model(self, lyric_align_task: LyricAlignTask, path_to_lyric_input: Path):
+        """ Executes alignment model on provided audio/lyric pair and detecting a positive or negative outcome. """
+        
         if not self.aligner_functional:
             logging.info("Missing vital components to execute aligner - skipping alignment.")
-            return []
-
+            return None
 
         datetime_before_alignment = datetime.now()
-        path_temp_file_lyric_aligned = self._align_lyrics_internal(path_to_audio_file, path_to_lyric_input)
+        path_temp_file_lyric_aligned = self._execute_NUSautolyrixalign(lyric_align_task.path_to_audio_file, path_to_lyric_input)
         
         # The most dependable way to ensure that the NUSAutoLyrixAlign process succeeded, is to
         # check if the temporary output file has been updated.
         if path_temp_file_lyric_aligned.exists() == False:
-            logging.warning(f"Unable to create aligned lyrics for {path_to_audio_file}")
-            return []
+            logging.warning(f"Unable to create aligned lyrics for {lyric_align_task.path_to_audio_file}")
+            return None
 
         datetime_lyric_aligned = datetime.fromtimestamp(path_temp_file_lyric_aligned.stat().st_ctime)
 
         if datetime_before_alignment > datetime_lyric_aligned:
             logging.warning('Lyric aligned existed before completion O_o')
-            return []
+            return None
         
-        # 'temp_dir/lyric_aligned.txt' --> 'working_directory/artist - song title.lyric_aligned'
-        path_to_aligned_lyric_file = self.copy_aligned_lyrics_to_working_directory(path_temp_file_lyric_aligned, path_to_audio_file)
+        # 'temp_dir/lyric_aligned.txt' --> 'working_directory/artist - song title.nusalaoffline'
+        path_to_aligned_lyric_file = self.copy_aligned_lyrics_to_working_directory(path_temp_file_lyric_aligned, lyric_align_task.path_to_audio_file)
+
+        return path_to_aligned_lyric_file
+
+
+    def _execute_NUSautolyrixalign(self, path_to_audio_file: Path, path_to_lyric_input: Path):
+        """ Copies audio and lyric file to a working directory, performs alignment, returns the path to this file.
         
-        word_timings = self._convert_to_wordandtiming(path_to_aligned_lyric_file)
+        Copies audio and lyric files to a temporary location, executes NUSAutoLyrixAlign on this data generating lyric
+        alignment data, to then copy back.
 
-        return word_timings
-
-
-    def _align_lyrics_internal(self, path_to_audio_file: Path, path_to_lyric_input: Path):
-        """ Copies audio and lyric file to a working directory, performs alignment, returns the path to this file. """
+        NUSAutoLyrixAlign executes via Apptainer/Singularity. Singularity didn't handle spaces in path's well. Therefore
+        we eliminate all spaces in the temporary pathing.
+        """
         logging.info(f"Aligment audio: {path_to_audio_file}")
         logging.info(f"Aligment lyric: {path_to_lyric_input}")
 

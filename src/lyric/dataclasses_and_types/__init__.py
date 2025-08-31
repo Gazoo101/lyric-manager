@@ -5,7 +5,7 @@
 #
 # Regardless, LyricManager keeps these widely used type definitions in here so as to not trigger ...
 
-from .lyric_align_task import LyricAlignTask
+from .lyric_align_task import LyricAlignTask, LyricAlignmentOutput
 from .lyric_aligner_type import LyricAlignerType
 from .lyric_fetcher_type import LyricFetcherType
 from .lyric_payload import LyricPayload

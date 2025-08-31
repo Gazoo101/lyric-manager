@@ -1,5 +1,6 @@
 from .lyric_aligner_interface import LyricAlignerInterface
 from .lyric_aligner_interface import WordAndTiming
+from .lyric_aligner_interface import AlignerOutput
 from .lyric_aligner_disabled import LyricAlignerDisabled
 from .lyric_aligner_NUS_autolyrixalign_offline import LyricAlignerNUSAutoLyrixAlignOffline
 from .lyric_aligner_NUS_autolyrixalign_online import LyricAlignerNUSAutoLyrixAlignOnline

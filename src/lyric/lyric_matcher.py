@@ -2,49 +2,15 @@
 import os
 import re
 import logging
-from dataclasses import dataclass
 
 
 # 3rd Party
 
 
 # 1st Party
-from ..components.miscellaneous import percentage
-from ..components.miscellaneous import get_percentage_and_amount_string
+from .dataclasses_and_types.lyric_match import MatchLyric
+from .dataclasses_and_types.lyric_match import MatchResult
 from ..lyric.aligners import WordAndTiming
-
-
-@dataclass
-class MatchLyric:
-    """ Houses matching data to re-connect a time-aligned word back to the originally structured lyrics. """
-    word_original: str                # Includes apostrophe's, commas, and ()'s, e.g. "(bring", "one,", "Glancin'", "Jealousy!"
-
-    # Hyphenated or other-wise split words get separated and passed in as individual words to the alignment neural
-    # network. line_index helps reconnect these split pieces to the original word.
-    line_index: int
-
-    # Same as word_original, except it doesn't contain commas, ()'s, but keeps short-hand apostrophes, e.g. "bring", "one", "Glancin'"
-    word_single: str            = ""
-
-    word_alignment: str         = ""  # Similar to word_single, except converts slangy words to full, e.g. "Glancing"
-    word_split_char_pre: str    = " " # The pre-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
-    word_split_char_post: str   = " " # The pos-character that a lyric-word was split on. Most often a space " ", sometimes a hyphen "-"
-    time_start: float           = -1.0
-    time_end: float             = -1.0
-
-
-@dataclass
-class MatchResult:
-    words_total: int          = 0
-    words_matched: int        = 0
-    match_percentage: float   = -1.0
-
-    def __post_init__(self):
-        self.match_percentage = percentage(self.words_matched, self.words_total)
-
-    def get_string(self):
-        return get_percentage_and_amount_string(self.words_matched, self.words_total)
-
 
 
 class LyricMatcher():
@@ -91,14 +57,14 @@ class LyricMatcher():
 
 
     def convert_lyrics_string_to_match_lyrics(self, lyrics: list[str]):
-        '''
+        """
 
         Args:
             lyrics: A list of strings.
         
         Returns:
             A list of Alignment
-        '''
+        """
         all_match_lyrics: list[MatchLyric] = self._split_lyrics_raw_spoken_segments(lyrics)
 
         for match_lyric in all_match_lyrics:
@@ -240,85 +206,10 @@ class LyricMatcher():
     #         alignment_lyric.word_alignment = word_alignment
 
 
-    def convert_aligmentlyrics_to_dict(self, all_lyrics):
-        ''' Turning recordtype into python primitives
-        '''
-
-        # TODO: Update this text - it's not accurate anymore
-        #   {
-        #       lyric_full_sentence = "To the hip, the hippy"
-        #       time_start = xxx.xxx,
-        #       time_end = xxx.xxx,
-        #       lyrics = [
-        #           {
-        #               word = "something",
-        #               time_start = xxx.xxx,
-        #               time_end = xxx.xxx
-        #           },
-        #           ...
-        #       ]
-        #
-        #   }
-        #
-        #
-
-        ready_to_export_lyrics = {
-            "schema_version": self.json_schema_version,
-            "lyric_lines": []
-        }
-
-        for lyric in all_lyrics:
-            # Assemble into sentences again for entry into dict / strings
-            
-            if lyric.line_index == len(ready_to_export_lyrics["lyric_lines"]):
-
-                lyric_line = {
-                    "text": lyric.word_original,
-                    "text": self._get_alignment_lyric_with_pre_post_chars(lyric),
-                    "time_start": lyric.time_start,
-                    "time_end": lyric.time_end,
-                    "lyric_words": [{
-                        "original": lyric.word_original,
-                        "single": lyric.word_single,
-                        "word_split_char_pre": lyric.word_split_char_pre,
-                        "word_split_char_post": lyric.word_split_char_post,
-                        "time_start": lyric.time_start,
-                        "time_end": lyric.time_end
-                    }]
-                }
-
-                ready_to_export_lyrics["lyric_lines"].append(lyric_line)
-            else:
-                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["text"] += self._get_alignment_lyric_with_pre_post_chars(lyric) 
-
-                # If the time_start of the lyricLine is undefined, we grab the first available lyricWord time_start
-                if (ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_start"] == -1):
-                    ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_start"] = lyric.time_start
-
-                # If the time_end of the lyricWord is undefined, we skip updating the lyricLine's time_end
-                if (lyric.time_end != -1):
-                    ready_to_export_lyrics["lyric_lines"][lyric.line_index]["time_end"] = lyric.time_end
-                
-                ready_to_export_lyrics["lyric_lines"][lyric.line_index]["lyric_words"].append({
-                    "original": lyric.word_original,
-                    "single": lyric.word_single,
-                    "word_split_char_pre": lyric.word_split_char_pre,
-                    "word_split_char_post": lyric.word_split_char_post,
-                    "time_start": lyric.time_start,
-                    "time_end": lyric.time_end
-                })
-            
-        return ready_to_export_lyrics
-    
-
-    def _get_alignment_lyric_with_pre_post_chars(self, alignment_lyric):
-        return alignment_lyric.word_original + alignment_lyric.word_split_char_post
-
-
     def match_aligned_lyrics_with_structured_lyrics(self,
         lyrics_time_aligned: list[WordAndTiming],
         lyrics_structured: list[MatchLyric],
-        debug_print=False) -> list[MatchLyric]:
+        debug_print=False) -> tuple[list[MatchLyric], MatchResult]:
         """ Matches time aligned lyrics with (sentance) structured lyrics.
 
         Aligned lyrics and structured lyrics rarely match exactly. This function uses a moving

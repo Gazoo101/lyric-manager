@@ -491,7 +491,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
         self.q_settings.setValue("SplitterHorizontalGeometry", self.widget_splitter_horizontal.sizes())
         self.q_settings.setValue("SplitterVerticalGeometry", self.widget_splitter_vertical.sizes())
 
-        self.q_settings.setValue("WorkingDirectory", "./WorkingDirectory")
+        self.q_settings.setValue("WorkingDirectory", self.path_to_working_directory)
 
         # Tokens / Api Keys
         self.q_settings.setValue("TokensApiKeys/GeniusToken", self.gui_genius_token)
@@ -638,7 +638,7 @@ class LyricManagerGraphicUserInterface(LyricManagerBase, QtCore.QObject):
             # How to embed a progress bar
             # https://stackoverflow.com/questions/54285057/how-to-include-a-column-of-progress-bars-within-a-qtableview
             progress_bar = QProgressBar()
-            progress_bar.setValue(task.match_result.match_percentage)
+            progress_bar.setValue(task.match_result_automated.match_percentage)
             progress_bar.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter) # Place progress bar text inside of itself.
 
             progress_bar_animation_disabled = """

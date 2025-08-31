@@ -1,8 +1,10 @@
 # Python
+from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 
 # 3rd Party
@@ -12,17 +14,30 @@ from pathlib import Path
 from ...components import FileOperations
 
 
+if TYPE_CHECKING:
+    from ...lyric.dataclasses_and_types import LyricAlignTask
+
 @dataclass
 class WordAndTiming():
     word: str
     time_start: float
     time_end: float
 
+@dataclass
+class AlignerOutput():
+    # Alignment models aren't perfect. Most model output will be about 70-90% accurate. In many cases, some minor manual tweaking
+    # can make a big difference, so LyricManager supports processing manually tweaked alignment data which takes precedence
+    # in the final output, and will be compared/ranked against the fully automatic output.
+    automated: list[WordAndTiming] = None
+    tweaked: list[WordAndTiming] = None
+
 
 class LyricAlignerInterface(ABC):
 
-    def __init__(self, file_extension, path_aligner_temp_dir: Path, path_to_output_dir: Path = None):
+    def __init__(self, file_extension: str, file_extension_manual_tweak: str, path_aligner_temp_dir: Path, path_to_output_dir: Path = None):
         self.file_extension = file_extension
+
+        self.file_extension_manual_tweak = file_extension_manual_tweak
 
         self.path_aligner_temp_dir = path_aligner_temp_dir
 
@@ -59,6 +74,23 @@ class LyricAlignerInterface(ABC):
             return path_to_alignment_file_next_to_audio_file
         
         return None
+    
+    # TODO: Clean up
+    def _get_manually_tweaked_alignment_data_file(self, path_to_audio_file:Path) -> Path:
+        path_to_alignment_file_next_to_audio_file = path_to_audio_file.with_suffix(self.file_extension_manual_tweak)
+        alignment_filename = path_to_alignment_file_next_to_audio_file.name
+
+        if self.path_to_output_dir:
+            path_to_lyric_aligned_in_output_folder = self.path_to_output_dir / alignment_filename
+            
+            if path_to_lyric_aligned_in_output_folder.exists():
+                return path_to_lyric_aligned_in_output_folder
+        
+        if path_to_alignment_file_next_to_audio_file.exists():
+            return path_to_alignment_file_next_to_audio_file
+        
+        return None
+
 
     def get_corresponding_aligned_lyric_file(self, path_to_audio_file:Path):
         path_to_lyric_aligned_file = path_to_audio_file.with_suffix(self.file_extension)
@@ -89,9 +121,9 @@ class LyricAlignerInterface(ABC):
 
 
     @abstractmethod
-    def align_lyrics(self, path_to_audio_file: Path, path_to_lyric_input: Path, use_preexisting: bool) -> list[WordAndTiming]:
+    def align_lyrics(self, lyric_align_task: LyricAlignTask, path_to_lyric_input: Path, use_preexisting: bool) -> AlignerOutput:
         raise NotImplementedError
 
     @abstractmethod
-    def _convert_to_wordandtiming(self, input):
+    def _convert_to_wordandtiming(self, input) -> list[WordAndTiming]:
         raise NotImplementedError

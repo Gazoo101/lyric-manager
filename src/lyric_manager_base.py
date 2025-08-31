@@ -23,7 +23,7 @@ from .components import get_percentage_and_amount_string
 from .components import FileOperations
 from .components import GithubRepositoryVersionCheck
 
-from .lyric.dataclasses_and_types import LyricAlignTask
+from .lyric.dataclasses_and_types import LyricAlignTask, LyricAlignmentOutput
 from .lyric.dataclasses_and_types import LyricAlignerType
 from .lyric.dataclasses_and_types import LyricFetcherType
 from .lyric.dataclasses_and_types import LyricPayload
@@ -52,6 +52,7 @@ from src.lyric_processing_config import AlignedLyricsFormatting
 
 if TYPE_CHECKING:
     from .lyric.aligners import WordAndTiming
+    from .lyric.aligners import AlignerOutput
     from .cli import ProgressItemGeneratorCLI
     from .gui import ProgressItemGeneratorGUI
 
@@ -88,13 +89,8 @@ class LyricManagerBase:
 
         self.lyric_sanitizer = LyricSanitizer()
         self.lyric_expander = LyricExpander()
-
-        # MAJOR version when you make incompatible API changes,
-        # MINOR version when you add functionality in a backwards compatible manner, and
-        # PATCH version when you make backwards compatible bug fixes.
-        self.json_schema_version = "2.0.0"
         
-        self.lyric_matcher = LyricMatcher(self.json_schema_version)
+        self.lyric_matcher = LyricMatcher(DeveloperOptions.json_schema_version)
 
         self.extension_alignment_ready = ".alignment_ready"
 
@@ -228,7 +224,8 @@ class LyricManagerBase:
             A list of AudioLyricAlignTask objects, either completed or failed.
         """
 
-        # Construct fetchers and aligners.
+        ##############################################################################################################
+        # Construct fetcher(s)
         lyric_fetchers = []
         for lyric_fetcher_type in settings.lyric_fetching.sources:
 
@@ -245,6 +242,8 @@ class LyricManagerBase:
             return []
 
 
+        ##############################################################################################################
+        # Construct aligner
         lyric_aligner = self._create_lyric_aligner(settings.lyric_alignment.method, settings)
 
         paths_to_process_valid = []
@@ -273,7 +272,7 @@ class LyricManagerBase:
 
         task: LyricAlignTask
         for task in loop_wrapper(tasks, desc="Fetching, validating, and sanitizing lyrics"):
-            logging.info(f"Fetching, validating, and sanitizing lyrics for: {task.filename}")
+            logging.info(f"======================= Getting Lyrics [{task.filename}] =======================")
             task_with_lyrics = self._fetch_and_sanitize_lyrics(lyric_fetchers, task)
             tasks_with_lyrics.append(task_with_lyrics)
 
@@ -285,6 +284,7 @@ class LyricManagerBase:
         # Because lyric alignment is fairly time-consuming (~0.5 minute processing per 1 minute audio), we write the
         # results to disk in the same loop to ensure nothing is lost in case of unexpected errors.
         for task in loop_wrapper(tasks_with_lyrics_valid, desc="Align lyrics"):
+            logging.info(f"======================= Aligning Lyrics [{task.filename}] =======================")
 
             lyric_align_task = self._align_lyrics(task, lyric_aligner, self.path_to_working_directory)
 
@@ -437,25 +437,39 @@ class LyricManagerBase:
         # TODO: We should eventually check if the lyric aligner can manage utf-8 files or needs strictly ASCII
         FileOperations.write_utf8_string(path_to_alignment_ready_file, lyric_align_task.lyric_text_alignment_ready)
 
-
-        time_aligned_lyrics: list[WordAndTiming] = lyric_aligner.align_lyrics(
-            lyric_align_task.path_to_audio_file,
+        time_aligned_lyrics: AlignerOutput = lyric_aligner.align_lyrics(
+            lyric_align_task,
             path_to_alignment_ready_file,
             use_preexisting=True
         )
 
         # If we received an empty list, something went awry with the lyric alignment
-        if not time_aligned_lyrics:
+        if not time_aligned_lyrics.automated:
             logging.info("No alignment peformed.")
             return lyric_align_task
+        
+        ###
+        # Manual alignment-tuning
 
-        lyrics_structured_aligned, match_result = self.lyric_matcher.match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics, alignment_lyrics)
-        logging.info(f"Successfully matched words: {match_result.get_string()})")
-
-        lyric_align_task.match_result = match_result
+        lyrics_structured_aligned, match_result_automated = self.lyric_matcher.match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics.automated, alignment_lyrics)
+        logging.info(f"Successfully matched words: {match_result_automated.get_string()})")
+        lyric_align_task.lyrics_aligned_automated = lyrics_structured_aligned
+        lyric_align_task.match_result_automated = match_result_automated
 
         # For later Json output, we must convert the dataclasses to Python-native dicts
-        lyric_align_task.lyrics_aligned = self.lyric_matcher.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
+        #lyric_align_task.lyrics_aligned = self.lyric_matcher.convert_aligmentlyrics_to_dict(lyrics_structured_aligned)
+
+        if time_aligned_lyrics.tweaked:
+            lyrics_tweaked_structured_aligned, match_result_tweaked = self.lyric_matcher.match_aligned_lyrics_with_structured_lyrics(time_aligned_lyrics.tweaked, alignment_lyrics)
+            lyric_align_task.lyrics_aligned_tweaked = lyrics_tweaked_structured_aligned
+            lyric_align_task.match_result_tweaked = match_result_tweaked
+
+            if match_result_tweaked.match_percentage >= match_result_automated.match_percentage:
+                logging.info("Tweaked match result is as good as, or better than the automated output. Preferring tweaked.")
+                #lyric_align_task.lyrics_aligned = self.lyric_matcher.convert_aligmentlyrics_to_dict(lyrics_tweaked_structured_aligned)
+                lyric_align_task.final_output_type = LyricAlignmentOutput.Tweaked
+            else:
+                logging.warning("Tweaked match result was **NOT** as good as, or better than automated. Did a human mess up?")
 
         return lyric_align_task
     
@@ -475,8 +489,16 @@ class LyricManagerBase:
         if export_readable_json == AlignedLyricsFormatting.Readable:
             formatting_indent=4
 
+        lyric_align_task.lyrics_aligned_disk_output = lyric_align_task.convert_best_aligment_lyrics_to_dict()
+
+        # match(lyric_align_task.final_output_type):
+        #     case LyricAlignmentOutput.Automated:
+        #         lyric_align_task.lyrics_aligned_disk_output = self.lyric_matcher.convert_aligmentlyrics_to_dict(lyric_align_task.lyrics_aligned_automated)
+        #     case LyricAlignmentOutput.Tweaked:
+        #         lyric_align_task.lyrics_aligned_disk_output = self.lyric_matcher.convert_aligmentlyrics_to_dict(lyric_align_task.lyrics_aligned_tweaked)
+
         with open(path_to_json_lyrics_file, 'w') as file:
-            json.dump(lyric_align_task.lyrics_aligned, file, indent=formatting_indent)
+            json.dump(lyric_align_task.lyrics_aligned_disk_output, file, indent=formatting_indent)
 
         logging.info(f"Wrote aligned lyrics file: {path_to_json_lyrics_file}")
 
@@ -502,8 +524,8 @@ class LyricManagerBase:
 
         stat_valid_out_of_total = get_percentage_and_amount_string(amount_tasks_valid, amount_tasks_total)
 
-        songs_match_rate_100 = [task for task in tasks_valid if task.match_result.match_percentage == 100.0]
-        songs_match_rate_90 = [task for task in tasks_valid if task.match_result.match_percentage >= 90.0]
+        songs_match_rate_100 = [task for task in tasks_valid if task.match_result_automated.match_percentage == 100.0]
+        songs_match_rate_90 = [task for task in tasks_valid if task.match_result_automated.match_percentage >= 90.0]
 
         amount_songs_match_rate_100 = len(songs_match_rate_100)
         amount_songs_match_rate_90 = len(songs_match_rate_90)
@@ -531,7 +553,7 @@ class LyricManagerBase:
         lines_to_write.append(f"============------------ Songs with validated Lyrics {stat_valid_out_of_total} ------------============")
 
         for task in tasks_valid:
-            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.match_result.get_string()}")
+            lines_to_write.append(f"{task.path_to_audio_file.stem[0:80] : <80} | {task.match_result_automated.get_string()}")
 
         lines_to_write.append("")
         lines_to_write.append(f"============------------ All songs ( {amount_tasks_total} ) ------------============")
